@@ -8,8 +8,8 @@
 
 (defn push-event [project focus-owner event]
   (condp instance? focus-owner
-    EditorComponentImpl (handle-editor-event project event)
-    nil))
+    EditorComponentImpl (handle-editor-event project (.getEditor focus-owner) event)
+    false))
 
 (defn init-project [project]
   (set-mode! project :normal))

@@ -28,7 +28,7 @@ dependencies {
 
     implementation("cider:cider-nrepl:0.50.0")
 
-    implementation("org.clojure:core.async:1.7.701")
+    implementation("org.clojure:spec.alpha:0.5.238")
 }
 
 // Configure Gradle IntelliJ Plugin
