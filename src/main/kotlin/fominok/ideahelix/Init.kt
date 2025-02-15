@@ -2,23 +2,14 @@ package fominok.ideahelix
 
 import clojure.java.api.Clojure
 import clojure.lang.IFn
-import com.intellij.collaboration.ui.util.performAction
-import com.intellij.ide.DataManager
 import com.intellij.ide.IdeEventQueue
-import com.intellij.ide.plugins.performAction
-import com.intellij.openapi.actionSystem.ActionPlaces
-import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
-import org.jdesktop.swingx.action.ActionManager
 import java.awt.KeyboardFocusManager
-import java.awt.event.ActionEvent
 import java.awt.event.KeyEvent
-import javax.swing.KeyStroke
 
 class Init : ProjectActivity {
     override suspend fun execute(project: Project) {
-
         val pushEvent: IFn;
 
         // Per https://plugins.jetbrains.com/docs/intellij/plugin-class-loaders.html#using-serviceloader:
