@@ -1,12 +1,119 @@
-<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M32.0845 7.94025V4H24.0203V7.9896H16.029V4H7.91553V7.94025H4V36H16.0044V32.0045C16.0058 30.9457 16.4274 29.9308 17.1766 29.1826C17.9258 28.4345 18.9412 28.0143 20 28.0143C21.0588 28.0143 22.0743 28.4345 22.8234 29.1826C23.5726 29.9308 23.9942 30.9457 23.9956 32.0045V36H36V7.94025H32.0845Z"
-          fill="url(#paint0_linear)"/>
-    <defs>
-        <linearGradient id="paint0_linear" x1="2.94192" y1="4.89955" x2="37.7772" y2="39.7345"
-                        gradientUnits="userSpaceOnUse">
-            <stop offset="0.15937" stop-color="#3BEA62"/>
-            <stop offset="0.5404" stop-color="#3C99CC"/>
-            <stop offset="0.93739" stop-color="#6B57FF"/>
-        </linearGradient>
-    </defs>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="95mm"
+   height="110.00002mm"
+   viewBox="0 0 95 110.00002"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="pluginIcon.svg"
+   inkscape:version="1.4 (e7c3feb1, 2024-10-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#111111"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="1"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="true"
+     inkscape:zoom="0.39902361"
+     inkscape:cx="964.85519"
+     inkscape:cy="318.27691"
+     inkscape:window-width="1512"
+     inkscape:window-height="945"
+     inkscape:window-x="0"
+     inkscape:window-y="37"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer1">
+    <inkscape:grid
+       id="grid1"
+       units="mm"
+       originx="-30.000001"
+       originy="-24.999985"
+       spacingx="0.99999998"
+       spacingy="1"
+       empcolor="#0099e5"
+       empopacity="0.30196078"
+       color="#0099e5"
+       opacity="0.14901961"
+       empspacing="5"
+       enabled="true"
+       visible="true" />
+  </sodipodi:namedview>
+  <defs
+     id="defs1">
+    <rect
+       x="604.7244"
+       y="-37.720728"
+       width="17.906349"
+       height="302.28772"
+       id="rect6" />
+    <linearGradient
+       id="linearGradient4"
+       inkscape:collect="always">
+      <stop
+         style="stop-color:#706bc8;stop-opacity:1;"
+         offset="0"
+         id="stop4" />
+      <stop
+         style="stop-color:#997bc8;stop-opacity:1;"
+         offset="1"
+         id="stop5" />
+    </linearGradient>
+    <inkscape:path-effect
+       effect="bend_path"
+       id="path-effect1"
+       is_visible="true"
+       lpeversion="1"
+       bendpath="M 12.844172,112.00118 182.90103,162.8641"
+       prop_scale="1.17"
+       scale_y_rel="false"
+       vertical="false"
+       hide_knot="false"
+       bendpath-nodetypes="cc" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient4"
+       id="linearGradient5"
+       x1="115"
+       y1="80"
+       x2="80"
+       y2="65"
+       gradientUnits="userSpaceOnUse" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-30.000001,-24.999985)">
+    <path
+       id="rect1"
+       style="fill:#84ddea;fill-opacity:1;stroke-width:0.264583"
+       d="M 30.000001,74.999998 125,24.999999 V 54.999998 L 30.000001,105 Z"
+       sodipodi:nodetypes="ccccc" />
+    <path
+       id="rect1-8"
+       style="fill:#55c5e4;fill-opacity:1;stroke-width:0.264583"
+       d="M 30.000001,105 125,54.999996 V 84.999995 L 30.000001,135 Z"
+       sodipodi:nodetypes="ccccc" />
+    <path
+       id="rect1-8-1"
+       style="fill:url(#linearGradient5);fill-opacity:1;stroke-width:0.264583"
+       d="M 125,74.999998 30.000007,24.999985 v 30 L 125,105 Z"
+       sodipodi:nodetypes="ccccc" />
+    <text
+       xml:space="preserve"
+       transform="matrix(0.26458333,0,0,0.26458333,30.000001,24.999985)"
+       id="text6"
+       style="fill:#55c5e4;text-align:start;writing-mode:lr-tb;text-orientation:auto;direction:ltr;fill-opacity:1;white-space:pre;shape-inside:url(#rect6)" />
+  </g>
 </svg>
