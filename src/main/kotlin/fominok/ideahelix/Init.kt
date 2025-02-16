@@ -10,7 +10,7 @@ import java.awt.event.KeyEvent
 
 class Init : ProjectActivity {
     override suspend fun execute(project: Project) {
-        val pushEvent: IFn;
+        val pushEvent: IFn
 
         // Per https://plugins.jetbrains.com/docs/intellij/plugin-class-loaders.html#using-serviceloader:
         val currentThread = Thread.currentThread()
@@ -32,9 +32,19 @@ class Init : ProjectActivity {
         }
 
         IdeEventQueue.getInstance().addDispatcher({
-            if ((it is KeyEvent) && (it.id == KeyEvent.KEY_TYPED || it.keyCode == KeyEvent.VK_ESCAPE)) {
-                val focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner
+            val isRelevantEvent = (it is KeyEvent) && when (it.id) {
+                KeyEvent.KEY_TYPED -> true
+                KeyEvent.KEY_PRESSED -> when (it.keyCode) {
+                    KeyEvent.VK_LEFT, KeyEvent.VK_RIGHT,
+                    KeyEvent.VK_UP, KeyEvent.VK_DOWN,
+                    KeyEvent.VK_ESCAPE, KeyEvent.VK_SHIFT -> true
+                    else -> false
+                }
+                else -> false
+            }
 
+            if (isRelevantEvent) {
+                val focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner
                 pushEvent.invoke(project, focusOwner, it) as Boolean
             } else {
                 false

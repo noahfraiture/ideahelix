@@ -59,10 +59,10 @@
     (Character/isDigit [char state] (update state :prefix conj char))
     (\i [state] (set-mode state :insert))
     (\g [state] (set-mode state :goto))
-    (\j [editor] (action editor "EditorDown"))
-    (\k [editor] (action editor "EditorUp"))
-    (\h [editor] (action editor "EditorLeft"))
-    (\l [editor] (action editor "EditorRight")))
+    ((:or \j KeyEvent/VK_DOWN) [editor] (action editor "EditorDown"))
+    ((:or \k KeyEvent/VK_UP) [editor] (action editor "EditorUp"))
+    ((:or \h KeyEvent/VK_LEFT) [editor] (action editor "EditorLeft"))
+    ((:or \l KeyEvent/VK_RIGHT) [editor] (action editor "EditorRight")))
   (:goto
     (Character/isDigit [char state] (update state :prefix conj char))
     (\h
