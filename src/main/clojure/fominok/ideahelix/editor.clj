@@ -14,7 +14,7 @@
 
 ;; We're allowed to use "thread-unsafe" mutable state since events are coming within 1 thread
 ;; which is blocked until it is decided what to do with a keyboard event
-(defonce state {})
+(defonce state (volatile! {}))
 
 (defn update-mode-panel! [project mode]
   (let [id (ModePanel/ID)
@@ -25,7 +25,7 @@
 
 (defn set-mode! [project mode]
   (update-mode-panel! project mode)
-  (alter-var-root #'state assoc-in[project :mode] mode)
+  (vswap! state assoc-in [project :mode] mode)
   :consume)
 
 (defn action [^EditorImpl editor action-name]
@@ -102,12 +102,12 @@
       (highlight-primary-caret editor event))))
 
 (defn handle-editor-event [project ^EditorImpl editor ^KeyEvent event]
-  (let [proj-state (get state project)
+  (let [proj-state (get @state project)
         result (editor-handler proj-state editor event)]
     (when-not (get-in proj-state [editor :caret-listener])
       (let [listener (caret-listener editor)]
         (.. editor getCaretModel (addCaretListener listener))
-        (alter-var-root #'state assoc-in [project editor :caret-listener] listener)))
+        (vswap! state assoc-in [project editor :caret-listener] listener)))
     (cond
       (nil? result) (do
                       (.consume event)
@@ -117,6 +117,6 @@
                       (.consume event)
                       (when (not= (:mode result) (:mode proj-state))
                         (update-mode-panel! project (:mode result)))
-                      (alter-var-root #'state assoc project result)
+                      (vswap! state assoc project result)
                       true))))
 
