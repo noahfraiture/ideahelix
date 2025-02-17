@@ -20,16 +20,22 @@
 ;; which is blocked until it is decided what to do with an event.
 (defonce state (volatile! {}))
 
-(defn- update-mode-panel! [project mode]
+(defn- update-mode-panel! [project]
   (let [id (ModePanel/ID)
         status-bar (.. WindowManager getInstance (getStatusBar project))
-        widget (.getWidget status-bar id)]
-    (.setText widget (str/upper-case (name mode)))
+        widget (.getWidget status-bar id)
+        project-state (get @state project)
+        mode-text (str/upper-case (name (:mode project-state)))
+        widget-text
+        (str
+          (when-let [prefix (:prefix project-state)] (format "(%s) " (apply str prefix)))
+          mode-text)]
+    (.setText widget widget-text)
     (.updateWidget status-bar id)))
 
 (defn set-mode! [project mode]
-  (update-mode-panel! project mode)
   (vswap! state assoc-in [project :mode] mode)
+  (update-mode-panel! project)
   :consume)
 
 (defn- action [^EditorImpl editor action-name]
@@ -52,7 +58,7 @@
 (defn- move-caret-line-n [document caret])
 
 (defn- set-mode [state mode]
-  (assoc state :mode mode :prefix []))
+  (assoc state :mode mode :prefix nil))
 
 (defkeymap
   editor-handler
@@ -60,7 +66,7 @@
     (KeyEvent/VK_ESCAPE [state] (set-mode state :normal))
     (KeyEvent/VK_SHIFT [] :pass))
   (:normal
-    (Character/isDigit [char state] (update state :prefix conj char))
+    (Character/isDigit [char state] (update state :prefix (fnil conj []) char))
     (\i [state] (set-mode state :insert))
     (\g [state] (set-mode state :goto))
     ((:or \j KeyEvent/VK_DOWN) [editor] (action editor "EditorDown"))
@@ -119,7 +125,6 @@
       (= :pass result) false
       (map? result) (do
                       (.consume event)
-                      (when (not= (:mode result) (:mode proj-state))
-                        (update-mode-panel! project (:mode result)))
                       (vswap! state assoc project result)
+                      (update-mode-panel! project)
                       true))))
