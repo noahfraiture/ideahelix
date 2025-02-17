@@ -3,16 +3,13 @@
 ;; file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 (ns fominok.ideahelix.editor
-  (:require [clojure.string :as str]
-            [fominok.ideahelix.keymap :refer [defkeymap]])
+  (:require [fominok.ideahelix.editor.ui :as ui]
+            [fominok.ideahelix.keymap :refer [defkeymap]]
+            [fominok.ideahelix.editor.movement :refer :all])
   (:import
     (com.intellij.openapi.actionSystem ActionManager ActionPlaces AnActionEvent)
-    (com.intellij.openapi.editor CaretVisualAttributes CaretVisualAttributes$Weight)
     (com.intellij.openapi.editor.event CaretListener)
     (com.intellij.openapi.editor.impl EditorImpl)
-    (com.intellij.openapi.wm WindowManager)
-    (com.intellij.ui JBColor)
-    (fominok.ideahelix ModePanel)
     (java.awt.event KeyEvent)))
 
 
@@ -20,42 +17,19 @@
 ;; which is blocked until it is decided what to do with an event.
 (defonce state (volatile! {}))
 
-(defn- update-mode-panel! [project]
-  (let [id (ModePanel/ID)
-        status-bar (.. WindowManager getInstance (getStatusBar project))
-        widget (.getWidget status-bar id)
-        project-state (get @state project)
-        mode-text (str/upper-case (name (:mode project-state)))
-        widget-text
-        (str
-          (when-let [prefix (:prefix project-state)] (format "(%s) " (apply str prefix)))
-          mode-text)]
-    (.setText widget widget-text)
-    (.updateWidget status-bar id)))
-
 (defn set-mode! [project mode]
   (vswap! state assoc-in [project :mode] mode)
-  (update-mode-panel! project)
+  (ui/update-mode-panel! project (get @state project))
   :consume)
 
-(defn- action [^EditorImpl editor action-name]
-  (let [data-context (.getDataContext editor)
-        action (.getAction (ActionManager/getInstance) action-name)]
-    (.actionPerformed
-      action
-      (AnActionEvent/createFromDataContext
-        ActionPlaces/KEYBOARD_SHORTCUT nil data-context))))
-
-
-(defn- move-caret-line-start [document caret]
-  (let [offset (.getLineStartOffset document (.. caret getLogicalPosition line))]
-    (.moveToOffset caret offset)))
-
-(defn- move-caret-line-end [document caret]
-  (let [offset (.getLineEndOffset document (.. caret getLogicalPosition line))]
-    (.moveToOffset caret offset)))
-
-(defn- move-caret-line-n [document caret])
+(defn- actions [^EditorImpl editor & action-names]
+  (let [data-context (.getDataContext editor)]
+    (doseq [action-name action-names]
+      (let [action (.getAction (ActionManager/getInstance) action-name)]
+        (.actionPerformed
+          action
+          (AnActionEvent/createFromDataContext
+            ActionPlaces/KEYBOARD_SHORTCUT nil data-context))))))
 
 (defn- set-mode [state mode]
   (assoc state :mode mode :prefix nil))
@@ -69,10 +43,16 @@
     (Character/isDigit [char state] (update state :prefix (fnil conj []) char))
     (\i [state] (set-mode state :insert))
     (\g [state] (set-mode state :goto))
-    ((:or \j KeyEvent/VK_DOWN) [editor] (action editor "EditorDown"))
-    ((:or \k KeyEvent/VK_UP) [editor] (action editor "EditorUp"))
-    ((:or \h KeyEvent/VK_LEFT) [editor] (action editor "EditorLeft"))
-    ((:or \l KeyEvent/VK_RIGHT) [editor] (action editor "EditorRight")))
+    (\v [state] (set-mode state :select))
+    (\w [editor] (actions editor "EditorUnSelectWord" "EditorNextWordWithSelection"))
+    (\b [editor] (actions editor "EditorUnSelectWord" "EditorPreviousWordWithSelection"))
+    ((:or \j KeyEvent/VK_DOWN) [editor] (actions editor "EditorDown"))
+    ((:or \k KeyEvent/VK_UP) [editor] (actions editor "EditorUp"))
+    ((:or \h KeyEvent/VK_LEFT) [editor] (actions editor "EditorLeft"))
+    ((:or \l KeyEvent/VK_RIGHT) [editor] (actions editor "EditorRight")))
+  (:select
+    (\w [editor] (actions editor "EditorNextWordWithSelection"))
+    (\b [editor] (actions editor "EditorPreviousWordWithSelection")))
   (:goto
     (Character/isDigit [char state] (update state :prefix conj char))
     (\h
@@ -85,8 +65,9 @@
       [document caret] (move-caret-line-n document caret)
       [state] (set-mode state :normal))
     (\s
-      [editor] (action editor "EditorLineStart")
-      [state] (set-mode state :normal)))
+      [editor] (actions editor "EditorLineStart")
+      [state] (set-mode state :normal))
+    (_ [state] (set-mode state :normal)))
   (:insert
     ((:ctrl \a) [document caret] (move-caret-line-start document caret))
     ((:ctrl \e) [document caret] (move-caret-line-end document caret))
@@ -94,22 +75,10 @@
     ((:ctrl \u0005) [document caret] (move-caret-line-end document caret))
     (_ [] :pass)))
 
-(defn- highlight-primary-caret [editor event]
-  (let [primary-caret (.. editor getCaretModel getPrimaryCaret)
-        primary-attributes
-        (CaretVisualAttributes. JBColor/GRAY CaretVisualAttributes$Weight/HEAVY)
-        secondary-attributes
-        (CaretVisualAttributes. JBColor/BLACK CaretVisualAttributes$Weight/HEAVY)
-        caret (.getCaret event)]
-    (.setVisualAttributes caret
-                          (if (= caret primary-caret)
-                            primary-attributes
-                            secondary-attributes))))
-
 (defn- caret-listener [editor]
   (reify CaretListener
     (caretPositionChanged [_ event]
-      (highlight-primary-caret editor event))))
+      (ui/highlight-primary-caret editor event))))
 
 (defn handle-editor-event [project ^EditorImpl editor ^KeyEvent event]
   (let [proj-state (get @state project)
@@ -126,5 +95,5 @@
       (map? result) (do
                       (.consume event)
                       (vswap! state assoc project result)
-                      (update-mode-panel! project)
+                      (ui/update-mode-panel! project proj-state)
                       true))))
