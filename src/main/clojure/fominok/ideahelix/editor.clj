@@ -1,9 +1,13 @@
+;; This Source Code Form is subject to the terms of the Mozilla Public
+;; License, v. 2.0. If a copy of the MPL was not distributed with this
+;; file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 (ns fominok.ideahelix.editor
   (:require [clojure.string :as str]
             [fominok.ideahelix.keymap :refer [defkeymap]])
   (:import
     (com.intellij.openapi.actionSystem ActionManager ActionPlaces AnActionEvent)
-    (com.intellij.openapi.editor CaretVisualAttributes CaretVisualAttributes$Weight EditorCustomElementRenderer)
+    (com.intellij.openapi.editor CaretVisualAttributes CaretVisualAttributes$Weight)
     (com.intellij.openapi.editor.event CaretListener)
     (com.intellij.openapi.editor.impl EditorImpl)
     (com.intellij.openapi.wm WindowManager)
@@ -13,10 +17,10 @@
 
 
 ;; We're allowed to use "thread-unsafe" mutable state since events are coming within 1 thread
-;; which is blocked until it is decided what to do with a keyboard event
+;; which is blocked until it is decided what to do with an event.
 (defonce state (volatile! {}))
 
-(defn update-mode-panel! [project mode]
+(defn- update-mode-panel! [project mode]
   (let [id (ModePanel/ID)
         status-bar (.. WindowManager getInstance (getStatusBar project))
         widget (.getWidget status-bar id)]
@@ -28,7 +32,7 @@
   (vswap! state assoc-in [project :mode] mode)
   :consume)
 
-(defn action [^EditorImpl editor action-name]
+(defn- action [^EditorImpl editor action-name]
   (let [data-context (.getDataContext editor)
         action (.getAction (ActionManager/getInstance) action-name)]
     (.actionPerformed
@@ -37,17 +41,17 @@
         ActionPlaces/KEYBOARD_SHORTCUT nil data-context))))
 
 
-(defn move-caret-line-start [document caret]
+(defn- move-caret-line-start [document caret]
   (let [offset (.getLineStartOffset document (.. caret getLogicalPosition line))]
     (.moveToOffset caret offset)))
 
-(defn move-caret-line-end [document caret]
+(defn- move-caret-line-end [document caret]
   (let [offset (.getLineEndOffset document (.. caret getLogicalPosition line))]
     (.moveToOffset caret offset)))
 
-(defn move-caret-line-n [document caret])
+(defn- move-caret-line-n [document caret])
 
-(defn set-mode [state mode]
+(defn- set-mode [state mode]
   (assoc state :mode mode :prefix []))
 
 (defkeymap
@@ -84,7 +88,7 @@
     ((:ctrl \u0005) [document caret] (move-caret-line-end document caret))
     (_ [] :pass)))
 
-(defn highlight-primary-caret [editor event]
+(defn- highlight-primary-caret [editor event]
   (let [primary-caret (.. editor getCaretModel getPrimaryCaret)
         primary-attributes
         (CaretVisualAttributes. JBColor/GRAY CaretVisualAttributes$Weight/HEAVY)
@@ -96,7 +100,7 @@
                             primary-attributes
                             secondary-attributes))))
 
-(defn caret-listener [editor]
+(defn- caret-listener [editor]
   (reify CaretListener
     (caretPositionChanged [_ event]
       (highlight-primary-caret editor event))))
@@ -119,4 +123,3 @@
                         (update-mode-panel! project (:mode result)))
                       (vswap! state assoc project result)
                       true))))
-
