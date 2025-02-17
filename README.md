@@ -8,9 +8,19 @@
 </h1>
 </div>
 
+[JetBrains IDEs'](https://www.jetbrains.com/ides/) plugin for a
+[Helix](https://helix-editor.com)-like experience.
+
+Unfortunately, [LSP](https://github.com/microsoft/language-server-protocol) is not a
+silver bullet, and there are still some projects and workflows that are better served by
+more heavyweight solutions, with JB IDEs arguably being some of the best in that regard.
+Unfortunately, this often forces us to leave an environment like Helix, which feels more
+like a right hand than just an editor. The goal of this project is to bridge the gap
+between the tooling provided by JetBrains and the editing model of Helix.
+
 ## Goals
-- Helix users and their muscle memory should feel at home in
-  [JetBrains IDEs](https://www.jetbrains.com/ides/), with no need to re-learn everything.
+- Helix users and their muscle memory should feel at home with no need to re-learn
+  everything.
 
 ## Non-Goals
 - **1:1 Emulation** – Achieving a perfect, one-to-one emulation of Helix is not the
@@ -26,7 +36,6 @@
 ## Acknowledgments
 - [Kakoune](https://kakoune.org) – for ruining my life by making every other editing
   style unbearable.
-- [Helix](https://helix-editor.com) – for doing the hard work of RIIR-ing Kakoune.
 - [Iosevka](https://typeof.net/Iosevka/) – for being the font of choice, both in the
   logo and for daily use (licensed under the
   [SIL Open Font License](https://opensource.org/licenses/OFL-1.1)).

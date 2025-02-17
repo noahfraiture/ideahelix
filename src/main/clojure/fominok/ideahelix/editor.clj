@@ -5,7 +5,8 @@
 (ns fominok.ideahelix.editor
   (:require [fominok.ideahelix.editor.ui :as ui]
             [fominok.ideahelix.keymap :refer [defkeymap]]
-            [fominok.ideahelix.editor.movement :refer :all])
+            [fominok.ideahelix.editor.movement :refer :all]
+            [fominok.ideahelix.editor.selection :refer :all])
   (:import
     (com.intellij.openapi.actionSystem ActionManager ActionPlaces AnActionEvent)
     (com.intellij.openapi.editor.event CaretListener)
@@ -46,6 +47,8 @@
     (\v [state] (set-mode state :select))
     (\w [editor] (actions editor "EditorUnSelectWord" "EditorNextWordWithSelection"))
     (\b [editor] (actions editor "EditorUnSelectWord" "EditorPreviousWordWithSelection"))
+    (\x [document caret]  (select-lines document caret :extend true))
+    (\X [document caret]  (select-lines document caret :extend false))
     ((:or \j KeyEvent/VK_DOWN) [editor] (actions editor "EditorDown"))
     ((:or \k KeyEvent/VK_UP) [editor] (actions editor "EditorUp"))
     ((:or \h KeyEvent/VK_LEFT) [editor] (actions editor "EditorLeft"))
