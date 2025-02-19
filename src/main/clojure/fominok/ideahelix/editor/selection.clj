@@ -5,7 +5,17 @@
 (ns fominok.ideahelix.editor.selection
   (:import (com.intellij.openapi.editor.impl CaretImpl)))
 
-(defn extend
+(defn ensure-selection
+  "Keep at least one character selection"
+  [caret]
+  (let [offset (.getOffset caret)
+        selection-start (.getSelectionStart caret)
+        selection-end (.getSelectionEnd caret)]
+    (when (= offset selection-end)
+      (.setSelection caret offset (inc offset)))))
+
+
+(defn extending
   "Executes function f on the caret but extending the existing selection or creating a new one"
   [caret f]
   (let [selection-start (.getSelectionStart caret)

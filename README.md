@@ -11,6 +11,8 @@
 [JetBrains IDEs'](https://www.jetbrains.com/ides/) plugin for a
 [Helix](https://helix-editor.com)-like experience.
 
+🚧 Work in progress! See issues for more details. 🚧
+
 Unfortunately, [LSP](https://github.com/microsoft/language-server-protocol) is not a
 silver bullet, and there are still some projects and workflows that are better served by
 more heavyweight solutions, with JB IDEs arguably being some of the best in that regard.

@@ -3,26 +3,33 @@
 ;; file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 (ns fominok.ideahelix.editor.movement
-  "Movements that aren't defined by existing Idea actions")
+  "Movements that aren't defined by existing Idea actions"
+  (:require [fominok.ideahelix.editor.selection :refer [ensure-selection]]))
 
 (defn move-caret-line-start [document caret]
   (let [offset (.getLineStartOffset document (.. caret getLogicalPosition line))]
     (.moveToOffset caret offset)
-    (.setSelection caret offset (inc offset))))
+    (ensure-selection caret)))
 
 (defn move-caret-line-end [document caret]
   (let [offset (.getLineEndOffset document (.. caret getLogicalPosition line))]
     (.moveToOffset caret offset)
-    (.setSelection caret offset (inc offset))))
+    (ensure-selection caret)))
 
 (defn move-caret-left [caret]
-  (let [offset (max 0 (dec (.getOffset caret)))]
-    (.moveToOffset caret offset)
-    (.setSelection caret offset (inc offset))))
+  (.moveCaretRelatively caret -1 0 false false)
+  (ensure-selection caret))
 
-(defn move-caret-right [document caret]
-  (let [offset (min (.getTextLength document) (inc (.getOffset caret)))]
-    (.moveToOffset caret offset)
-    (.setSelection caret offset (inc offset))))
+(defn move-caret-right [caret]
+  (.moveCaretRelatively caret 1 0 false false)
+  (ensure-selection caret))
+
+(defn move-caret-down [caret]
+  (.moveCaretRelatively caret 0 1 false false)
+  (ensure-selection caret))
+
+(defn move-caret-up [caret]
+  (.moveCaretRelatively caret 0 -1 false false)
+  (ensure-selection caret))
 
 (defn move-caret-line-n [document caret])

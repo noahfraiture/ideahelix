@@ -45,20 +45,24 @@
     (\i [state] (set-mode state :insert))
     (\g [state] (set-mode state :goto))
     (\v [state] (set-mode state :select))
-    (\w [editor] (actions editor "EditorUnSelectWord" "EditorNextWordWithSelection"))
+    (\w
+      [editor] (actions editor "EditorUnSelectWord" "EditorNextWordWithSelection")
+      [caret] (ensure-selection caret))
     (\b [editor] (actions editor "EditorUnSelectWord" "EditorPreviousWordWithSelection"))
     (\x [document caret]  (select-lines document caret :extend true))
     (\X [document caret]  (select-lines document caret :extend false))
-    ((:or \j KeyEvent/VK_DOWN) [editor] (actions editor "EditorDown"))
-    ((:or \k KeyEvent/VK_UP) [editor] (actions editor "EditorUp"))
+    ((:or \j KeyEvent/VK_DOWN) [caret] (move-caret-down caret))
+    ((:or \k KeyEvent/VK_UP) [caret] (move-caret-up caret))
     ((:or \h KeyEvent/VK_LEFT) [caret] (move-caret-left caret))
-    ((:or \l KeyEvent/VK_RIGHT) [document caret] (move-caret-right document caret)))
+    ((:or \l KeyEvent/VK_RIGHT) [caret] (move-caret-right caret)))
   (:select
     (\v [state] (set-mode state :normal))
-    (\w [editor] (actions editor "EditorNextWordWithSelection"))
+    (\w
+      [editor] (actions editor "EditorNextWordWithSelection")
+      [caret] (ensure-selection caret))
     (\b [editor] (actions editor "EditorPreviousWordWithSelection"))
-    ((:or \h KeyEvent/VK_LEFT) [caret] (extend caret move-caret-left))
-    ((:or \l KeyEvent/VK_RIGHT) [document caret] (extend caret (partial move-caret-right document))))
+    ((:or \h KeyEvent/VK_LEFT) [caret] (extending caret move-caret-left))
+    ((:or \l KeyEvent/VK_RIGHT) [caret] (extending caret move-caret-right)))
   (:goto
     (Character/isDigit [char state] (update state :prefix conj char))
     (\h
