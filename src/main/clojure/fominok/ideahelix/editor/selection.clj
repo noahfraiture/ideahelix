@@ -3,7 +3,29 @@
 ;; file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 (ns fominok.ideahelix.editor.selection
-  (:import (com.intellij.openapi.editor.impl CaretImpl EditorImpl)))
+  (:import (com.intellij.openapi.editor.impl CaretImpl)))
+
+(defn extend
+  "Executes function f on the caret but extending the existing selection or creating a new one"
+  [caret f]
+  (let [selection-start (.getSelectionStart caret)
+        selection-end (.getSelectionEnd caret)
+        previous-offset (.getOffset caret)
+        degenerate (and
+                     (= previous-offset selection-start)
+                     (= previous-offset (dec selection-end)))
+        reversed (and
+                   (= previous-offset selection-start)
+                   (< selection-start selection-end))
+        _ (f caret)
+        new-offset (.getOffset caret)
+        move-right (> new-offset previous-offset)]
+
+    (cond
+      (and degenerate move-right) (.setSelection caret selection-start (inc new-offset))
+      degenerate (.setSelection caret new-offset selection-end)
+      reversed(.setSelection caret new-offset selection-end)
+      :else (.setSelection caret selection-start (inc new-offset)))))
 
 (defn select-lines
   [document ^CaretImpl caret & {:keys [extend] :or {extend false}}]

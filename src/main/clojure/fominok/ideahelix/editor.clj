@@ -51,11 +51,14 @@
     (\X [document caret]  (select-lines document caret :extend false))
     ((:or \j KeyEvent/VK_DOWN) [editor] (actions editor "EditorDown"))
     ((:or \k KeyEvent/VK_UP) [editor] (actions editor "EditorUp"))
-    ((:or \h KeyEvent/VK_LEFT) [editor] (actions editor "EditorLeft"))
-    ((:or \l KeyEvent/VK_RIGHT) [editor] (actions editor "EditorRight")))
+    ((:or \h KeyEvent/VK_LEFT) [caret] (move-caret-left caret))
+    ((:or \l KeyEvent/VK_RIGHT) [document caret] (move-caret-right document caret)))
   (:select
+    (\v [state] (set-mode state :normal))
     (\w [editor] (actions editor "EditorNextWordWithSelection"))
-    (\b [editor] (actions editor "EditorPreviousWordWithSelection")))
+    (\b [editor] (actions editor "EditorPreviousWordWithSelection"))
+    ((:or \h KeyEvent/VK_LEFT) [caret] (extend caret move-caret-left))
+    ((:or \l KeyEvent/VK_RIGHT) [document caret] (extend caret (partial move-caret-right document))))
   (:goto
     (Character/isDigit [char state] (update state :prefix conj char))
     (\h
@@ -98,5 +101,5 @@
       (map? result) (do
                       (.consume event)
                       (vswap! state assoc project result)
-                      (ui/update-mode-panel! project proj-state)
+                      (ui/update-mode-panel! project result)
                       true))))
