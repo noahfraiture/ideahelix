@@ -35,25 +35,26 @@
       [state document caret] (when (= :insert (:mode state)) (leave-insert-mode document caret))
       [state] (set-mode state :normal))
     (KeyEvent/VK_SHIFT [] :pass))
+  ((:or :normal :select)
+   (Character/isDigit [char state] (update state :prefix (fnil conj []) char))
+   (\d [write document caret] (delete-selection-contents document caret))
+   (\a
+     [caret] (into-insert-mode-append caret)
+     [state] (set-mode state :insert))
+   (\i
+     [caret] (into-insert-mode-prepend caret)
+     [state] (set-mode state :insert))
+   ((:or (:alt \;) (:alt \u2026)) [caret] (flip-selection caret))
+   ((:or (:alt \:) (:alt \u00DA)) [caret] (ensure-selection-forward caret))
+   (\; [document caret] (shrink-selection document caret))
+   (\, [editor] (keep-primary-selection editor))
+   (\x [document caret]  (select-lines document caret :extend true))
+   (\X [document caret]  (select-lines document caret :extend false)))
   (:normal
-    (Character/isDigit [char state] (update state :prefix (fnil conj []) char))
-    (\d [write document caret] (delete-selection-contents document caret))
-    (\a
-      [caret] (into-insert-mode-append caret)
-      [state] (set-mode state :insert))
-    (\i
-      [caret] (into-insert-mode-prepend caret)
-      [state] (set-mode state :insert))
-    ((:or (:alt \;) (:alt \u2026)) [caret] (flip-selection caret))
-    ((:or (:alt \:) (:alt \u00DA)) [caret] (ensure-selection-forward caret))
-    (\; [document caret] (shrink-selection document caret))
-    (\, [editor] (keep-primary-selection editor))
     (\g [state] (set-mode state :goto))
     (\v [state] (set-mode state :select))
     (\w [editor caret] (move-caret-word-forward editor caret))
     (\b [editor caret] (move-caret-word-backward editor caret))
-    (\x [document caret]  (select-lines document caret :extend true))
-    (\X [document caret]  (select-lines document caret :extend false))
     ((:or \j KeyEvent/VK_DOWN)
      [document caret] (move-caret-down document caret)
      [editor] (scroll-to-primary-caret editor))
@@ -67,13 +68,22 @@
      [document caret] (move-caret-forward document caret)
      [editor] (scroll-to-primary-caret editor)))
   (:select
+    (\g [state] (set-mode state :select-goto))
     (\v [state] (set-mode state :normal))
-    (\w
-      [editor] (actions editor "EditorNextWordWithSelection")
-      [document caret] (ensure-selection document caret))
-    (\b [editor] (actions editor "EditorPreviousWordWithSelection"))
-    ((:or \h KeyEvent/VK_LEFT) [document caret] (extending document caret move-caret-backward))
-    ((:or \l KeyEvent/VK_RIGHT) [document caret] (extending document caret move-caret-forward)))
+    (\w [document editor caret] (extending document caret (partial move-caret-word-forward editor)))
+    (\b [document editor caret] (extending document caret (partial move-caret-word-backward editor)))
+    ((:or \j KeyEvent/VK_DOWN)
+     [document caret] (extending document caret (partial move-caret-down document))
+     [editor] (scroll-to-primary-caret editor))
+    ((:or \k KeyEvent/VK_UP)
+     [document caret] (extending document caret (partial move-caret-up document))
+     [editor] (scroll-to-primary-caret editor))
+    ((:or \h KeyEvent/VK_LEFT)
+     [document caret] (extending document caret (partial move-caret-backward document))
+     [editor] (scroll-to-primary-caret editor))
+    ((:or \l KeyEvent/VK_RIGHT)
+     [document caret] (extending document caret (partial move-caret-forward document))
+     [editor] (scroll-to-primary-caret editor)))
   (:goto
     (Character/isDigit [char state] (update state :prefix conj char))
     (\h
@@ -89,6 +99,21 @@
       [editor] (actions editor "EditorLineStart")
       [state] (set-mode state :normal))
     (_ [state] (set-mode state :normal)))
+  (:select-goto
+    (Character/isDigit [char state] (update state :prefix conj char))
+    (\h
+      [document caret] (extending document caret (partial move-caret-line-start document))
+      [state] (set-mode state :select))
+    (\l
+      [document caret] (extending document caret (partial move-caret-line-end document))
+      [state] (set-mode state :select))
+    (\g
+      [document caret] (extending document caret (partial move-caret-line-n document))
+      [state] (set-mode state :select))
+    (\s
+      [editor] (actions editor "EditorLineStart")
+      [state] (set-mode state :normal))
+    (_ [state] (set-mode state :select)))
   (:insert
     ((:or (:ctrl \a) (:ctrl \u0001)) [document caret] (move-caret-line-start document caret))
     ((:or (:ctrl \e) (:ctrl \u0005)) [document caret] (move-caret-line-end document caret))

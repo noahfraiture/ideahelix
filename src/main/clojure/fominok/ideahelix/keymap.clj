@@ -59,11 +59,16 @@
   (s/cat :matcher ::matcher
          :bodies (s/+ ::body)))
 
+(s/def ::mode-name
+  (s/or :name keyword?
+        :or (s/cat :tag (partial = :or)
+                   :mode-names (s/+ keyword?))))
+
 ;; Top-level sections of `defkeymap` are grouped by Helix mode with key
 ;; mappings defined inside for each
 (s/def ::mode
   (s/cat
-    :mode keyword?
+    :mode ::mode-name
     :mappings (s/+ (s/spec ::mapping))))
 
 ;; The top level spec for `defkeymap` contents
@@ -161,13 +166,20 @@
     {}
     mappings))
 
+(defn- flatten-modes [acc {:keys [mode mappings]}]
+  (case (first mode)
+    :name (update acc (second mode) (fnil concat []) mappings)
+    :or (reduce
+          (fn [inner-acc mode-name]
+            (update inner-acc mode-name (fnil concat []) mappings)) acc (get-in mode [1 :mode-names]))))
+
 (defmacro defkeymap
   "Define a keymap function that matches a key event by set of rules and handles it."
   [ident & mappings]
-  (let [rules (as-> (s/conform ::defkeymap mappings) $
-                    (group-by :mode $)
-                    (update-vals $ first)
-                    (update-vals $ #(-> % :mappings process-mappings)))]
+  (let [rules
+        (as-> (s/conform ::defkeymap mappings) $
+              (reduce flatten-modes {} $)
+              (update-vals $ process-mappings))]
     `(defn ~ident [project# state# ^EditorImpl editor# ^KeyEvent event#]
        (let [modifier# (or (when (.isControlDown event#) :ctrl)
                            (when (.isAltDown event#) :alt))

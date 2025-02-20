@@ -11,14 +11,14 @@
 [JetBrains IDEs'](https://www.jetbrains.com/ides/) plugin for a
 [Helix](https://helix-editor.com)-like experience.
 
-🚧 Work in progress! See issues for more details. 🚧
+🚧 _Work in progress! See issues for more details._ 🚧
 
-Unfortunately, [LSP](https://github.com/microsoft/language-server-protocol) is not a
-silver bullet, and there are still some projects and workflows that are better served by
-more heavyweight solutions, with JB IDEs arguably being some of the best in that regard.
-Unfortunately, this often forces us to leave an environment like Helix, which feels more
-like a right hand than just an editor. The goal of this project is to bridge the gap
-between the tooling provided by JetBrains and the editing model of Helix.
+[LSP](https://github.com/microsoft/language-server-protocol) is not a silver bullet, and
+there are still some projects and workflows that are better served by more heavyweight
+solutions, with JB IDEs arguably being some of the best in that regard. Unfortunately,
+this often forces us to leave an environment like Helix, which feels more like a right
+hand than just an editor. The goal of this project is to bridge the gap between the
+tooling provided by JetBrains and the editing model of Helix.
 
 ## Goals
 - Helix users and their muscle memory should feel at home with no need to re-learn
