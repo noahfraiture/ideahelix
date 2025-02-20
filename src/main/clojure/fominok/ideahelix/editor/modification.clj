@@ -29,9 +29,10 @@
   (when-not (Character/isISOControl char)
     (let [selection-start (.getSelectionStart caret)
           selection-end (.getSelectionEnd caret)
-          reversed (reversed? caret)]
-      (.insertString document (.getOffset caret) (str char))
-      (.moveCaretRelatively caret 1 0 false false)
+          reversed (reversed? caret)
+          offset (.getOffset caret)]
+      (.insertString document offset (str char))
+      (.moveToOffset caret (inc offset))
       (if reversed
         (.setSelection caret (.getOffset caret) (inc selection-end))
         (.setSelection caret selection-start (.getOffset caret))))))

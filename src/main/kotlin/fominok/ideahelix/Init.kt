@@ -38,20 +38,25 @@ class Init : ProjectActivity {
         }
 
         IdeEventQueue.getInstance().addDispatcher({
-            val isRelevantEvent = (it is KeyEvent) && when (it.id) {
-                KeyEvent.KEY_TYPED -> true
-                KeyEvent.KEY_PRESSED -> when (it.keyCode) {
-                    KeyEvent.VK_LEFT, KeyEvent.VK_RIGHT,
-                    KeyEvent.VK_UP, KeyEvent.VK_DOWN,
-                    KeyEvent.VK_ESCAPE, KeyEvent.VK_SHIFT, KeyEvent.VK_BACK_SPACE -> true
-                    else -> false
+            if (it is KeyEvent) {
+                val (take, isRelevantEvent) = when (it.id) {
+                    KeyEvent.KEY_TYPED -> Pair(true, true)
+                    KeyEvent.KEY_PRESSED -> when (it.keyCode) {
+                        KeyEvent.VK_LEFT, KeyEvent.VK_RIGHT,
+                        KeyEvent.VK_UP, KeyEvent.VK_DOWN,
+                        KeyEvent.VK_ESCAPE, KeyEvent.VK_SHIFT,
+                        KeyEvent.VK_BACK_SPACE -> Pair(true, true)
+                        else -> Pair(true, false)
+                    }
+                    else -> Pair(false, false)
                 }
-                else -> false
-            }
 
-            if (isRelevantEvent) {
-                val focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner
-                pushEvent.invoke(project, focusOwner, it) as Boolean
+                if (isRelevantEvent) {
+                    val focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner
+                    pushEvent.invoke(project, focusOwner, it) as Boolean
+                } else {
+                    take
+                }
             } else {
                 false
             }
