@@ -11,8 +11,24 @@
   (let [offset (.getOffset caret)
         selection-start (.getSelectionStart caret)
         selection-end (.getSelectionEnd caret)]
-    (when (= offset selection-end)
+    (when (= offset selection-end selection-start)
       (.setSelection caret offset (inc offset)))))
+
+(defn reversed? [caret]
+  (let [selection-start (.getSelectionStart caret)
+        selection-end (.getSelectionEnd caret)
+        offset (.getOffset caret)]
+    (and
+      (= offset selection-start)
+      (< selection-start (dec selection-end)))))
+
+(defn degenerate? [caret]
+  (let [selection-start (.getSelectionStart caret)
+        selection-end (.getSelectionEnd caret)
+        offset (.getOffset caret)]
+    (and
+      (= offset selection-start)
+      (= offset (dec selection-end)))))
 
 
 (defn extending

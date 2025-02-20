@@ -43,7 +43,7 @@ class Init : ProjectActivity {
                 KeyEvent.KEY_PRESSED -> when (it.keyCode) {
                     KeyEvent.VK_LEFT, KeyEvent.VK_RIGHT,
                     KeyEvent.VK_UP, KeyEvent.VK_DOWN,
-                    KeyEvent.VK_ESCAPE, KeyEvent.VK_SHIFT -> true
+                    KeyEvent.VK_ESCAPE, KeyEvent.VK_SHIFT, KeyEvent.VK_BACK_SPACE -> true
                     else -> false
                 }
                 else -> false

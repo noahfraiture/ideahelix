@@ -5,7 +5,8 @@
 (ns fominok.ideahelix.keymap
   "Keymap definition utilities."
   (:require [clojure.spec.alpha :as s])
-  (:import (com.intellij.openapi.editor.impl EditorImpl)
+  (:import (com.intellij.openapi.command WriteCommandAction)
+           (com.intellij.openapi.editor.impl EditorImpl)
            (java.awt.event KeyEvent)))
 
 ;; Key matcher.
@@ -33,7 +34,10 @@
         :editor (partial = 'editor)
         :state (partial = 'state)
         :document (partial = 'document)
-        :caret (partial = 'caret)))
+        :caret (partial = 'caret)
+        :project (partial = 'project)
+        :write (partial = 'write)))
+
 
 ;; Statement to execute. If the statement is just a :pass keyword
 ;; it deserves a special treatment.
@@ -97,38 +101,51 @@
 
 (defn- process-body
   "Taking a dependencies vector and a statement, this function wraps the statement
-  with requested dependencies with symbols linked."
-  [state editor event {:keys [deps statement]}]
-  (let [deps-bindings-split (group-by #(= :caret (first %)) deps)
+  with requested dependencies with symbols linked.
+  For `caret` dependency the body will be executed for each caret.
+  For `write` dependency the `runWriteCommandAction` wrapper is used to comply with
+  Idea's requirements."
+  [project state editor event {:keys [deps statement]}]
+  (let [deps-bindings-split (group-by #(#{:caret :write} (first %)) deps)
         deps-bindings-top
         (into [] (mapcat
                    (fn [[kw sym]]
                      [sym (case kw
                             :state state
+                            :project project
                             :document `(.getDocument ~editor)
                             :char `(.getKeyChar ~event)
                             :editor editor)])
-                   (get deps-bindings-split false)))
-        caret-sym (get-in deps-bindings-split [true 0 1])
+                   (get deps-bindings-split nil)))
+        caret-sym (get-in deps-bindings-split [:caret 0 1])
+        write-sym (get-in deps-bindings-split [:write 0 1])
         statement (second statement)
         gen-statement (if caret-sym
                         `(let [caret-model# (.getCaretModel ~editor)]
                            (.runForEachCaret
                              caret-model#
                              (fn [~caret-sym] ~statement)))
-                        statement)]
+                        statement)
+        write-wrapped-statement
+        (if write-sym
+          `(WriteCommandAction/runWriteCommandAction
+             ~project
+             (fn [] ~gen-statement))
+          gen-statement)]
+
     `(let ~deps-bindings-top
-       ~gen-statement)))
+       ~write-wrapped-statement)))
 
 (defn- process-bodies
   "Builds handler function made of sequentially executed statements with dependencies
   injected for each."
   [bodies]
-  (let [state (gensym "state")
+  (let [project (gensym "project")
+        state (gensym "state")
         editor (gensym "editor")
         event (gensym "event")
-        bodies (map (partial process-body state editor event) bodies)]
-    `(fn [~state ^EditorImpl ~editor ^KeyEvent ~event]
+        bodies (map (partial process-body project state editor event) bodies)]
+    `(fn [~project ~state ^EditorImpl ~editor ^KeyEvent ~event]
        (do ~@bodies))))
 
 (defn- process-mappings
@@ -151,7 +168,7 @@
                     (group-by :mode $)
                     (update-vals $ first)
                     (update-vals $ #(-> % :mappings process-mappings)))]
-    `(defn ~ident [state# ^EditorImpl editor# ^KeyEvent event#]
+    `(defn ~ident [project# state# ^EditorImpl editor# ^KeyEvent event#]
        (let [modifier# (or (when (.isControlDown event#) :ctrl)
                            (when (.isAltDown event#) :alt))
              mode# (:mode state#)
@@ -169,4 +186,4 @@
                  (find-matcher# cur-mode-matchers#)
                  (get-in ~rules [mode# :any]))]
          (if-let [handler# handler-opt#]
-           (handler# state# editor# event#))))))
+           (handler# project# state# editor# event#))))))
