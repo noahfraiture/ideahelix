@@ -32,7 +32,7 @@
   editor-handler
   (:any
     (KeyEvent/VK_ESCAPE
-      [state caret] (when (= :insert (:mode state)) (leave-insert-mode caret))
+      [state document caret] (when (= :insert (:mode state)) (leave-insert-mode document caret))
       [state] (set-mode state :normal))
     (KeyEvent/VK_SHIFT [] :pass))
   (:normal
@@ -46,7 +46,7 @@
       [state] (set-mode state :insert))
     ((:or (:alt \;) (:alt \u2026)) [caret] (flip-selection caret))
     ((:or (:alt \:) (:alt \u00DA)) [caret] (ensure-selection-forward caret))
-    (\; [caret] (shrink-selection caret))
+    (\; [document caret] (shrink-selection document caret))
     (\, [editor] (keep-primary-selection editor))
     (\g [state] (set-mode state :goto))
     (\v [state] (set-mode state :select))
@@ -55,25 +55,25 @@
     (\x [document caret]  (select-lines document caret :extend true))
     (\X [document caret]  (select-lines document caret :extend false))
     ((:or \j KeyEvent/VK_DOWN)
-     [caret] (move-caret-down caret)
+     [document caret] (move-caret-down document caret)
      [editor] (scroll-to-primary-caret editor))
     ((:or \k KeyEvent/VK_UP)
-     [caret] (move-caret-up caret)
+     [document caret] (move-caret-up document caret)
      [editor] (scroll-to-primary-caret editor))
     ((:or \h KeyEvent/VK_LEFT)
-     [caret] (move-caret-backward caret)
+     [document caret] (move-caret-backward document caret)
      [editor] (scroll-to-primary-caret editor))
     ((:or \l KeyEvent/VK_RIGHT)
-     [caret] (move-caret-forward caret)
+     [document caret] (move-caret-forward document caret)
      [editor] (scroll-to-primary-caret editor)))
   (:select
     (\v [state] (set-mode state :normal))
     (\w
       [editor] (actions editor "EditorNextWordWithSelection")
-      [caret] (ensure-selection caret))
+      [document caret] (ensure-selection document caret))
     (\b [editor] (actions editor "EditorPreviousWordWithSelection"))
-    ((:or \h KeyEvent/VK_LEFT) [caret] (extending caret move-caret-backward))
-    ((:or \l KeyEvent/VK_RIGHT) [caret] (extending caret move-caret-forward)))
+    ((:or \h KeyEvent/VK_LEFT) [document caret] (extending document caret move-caret-backward))
+    ((:or \l KeyEvent/VK_RIGHT) [document caret] (extending document caret move-caret-forward)))
   (:goto
     (Character/isDigit [char state] (update state :prefix conj char))
     (\h

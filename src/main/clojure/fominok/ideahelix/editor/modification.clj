@@ -3,7 +3,11 @@
 ;; file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 (ns fominok.ideahelix.editor.modification
-  (:require [fominok.ideahelix.editor.selection :refer [ensure-selection reversed?]]))
+  (:require
+    [fominok.ideahelix.editor.util
+     :refer [inc-within-bounds dec-within-bounds]
+     :rename {inc-within-bounds binc dec-within-bounds bdec}]
+    [fominok.ideahelix.editor.selection :refer [ensure-selection reversed?]]))
 
 (defn into-insert-mode-append [caret]
   (let [selection-start (.getSelectionStart caret)
@@ -15,20 +19,20 @@
   (let [selection-start (.getSelectionStart caret)]
     (.moveToOffset caret selection-start)))
 
-(defn leave-insert-mode [caret]
+(defn leave-insert-mode [document caret]
   (if (.hasSelection caret)
     (when-not (reversed? caret)
-      (.moveToOffset caret (dec (.getOffset caret))))
-    (ensure-selection caret)))
+      (.moveToOffset caret (bdec (.getOffset caret))))
+    (ensure-selection document caret)))
 
 (defn backspace [document caret]
   (let [offset (.getOffset caret)]
-    (.deleteString document (dec offset) offset)))
+    (.deleteString document (bdec offset) offset)))
 
 (defn delete-selection-contents [document caret]
   (.deleteString document (.getSelectionStart caret) (.getSelectionEnd caret))
   (let [offset (.getOffset caret)]
-    (.setSelection caret offset (inc offset))))
+    (.setSelection caret offset (binc document offset))))
 
 (defn insert-char [document caret char]
   (when-not (Character/isISOControl char)
@@ -37,7 +41,7 @@
           reversed (reversed? caret)
           offset (.getOffset caret)]
       (.insertString document offset (str char))
-      (.moveToOffset caret (inc offset))
+      (.moveToOffset caret (binc document offset))
       (if reversed
-        (.setSelection caret (.getOffset caret) (inc selection-end))
+        (.setSelection caret (.getOffset caret) (binc document selection-end))
         (.setSelection caret selection-start (.getOffset caret))))))
