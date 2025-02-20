@@ -37,6 +37,7 @@
     (KeyEvent/VK_SHIFT [] :pass))
   (:normal
     (Character/isDigit [char state] (update state :prefix (fnil conj []) char))
+    (\d [write document caret] (delete-selection-contents document caret))
     (\a
       [caret] (into-insert-mode-append caret)
       [state] (set-mode state :insert))

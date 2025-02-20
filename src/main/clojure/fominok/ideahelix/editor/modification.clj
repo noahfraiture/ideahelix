@@ -25,6 +25,11 @@
   (let [offset (.getOffset caret)]
     (.deleteString document (dec offset) offset)))
 
+(defn delete-selection-contents [document caret]
+  (.deleteString document (.getSelectionStart caret) (.getSelectionEnd caret))
+  (let [offset (.getOffset caret)]
+    (.setSelection caret offset (inc offset))))
+
 (defn insert-char [document caret char]
   (when-not (Character/isISOControl char)
     (let [selection-start (.getSelectionStart caret)
