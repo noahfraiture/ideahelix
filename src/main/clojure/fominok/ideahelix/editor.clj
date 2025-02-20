@@ -38,8 +38,13 @@
   (:normal
     (Character/isDigit [char state] (update state :prefix (fnil conj []) char))
     (\a
-      [caret] (into-insert-mode caret)
+      [caret] (into-insert-mode-append caret)
       [state] (set-mode state :insert))
+    (\i
+      [caret] (into-insert-mode-prepend caret)
+      [state] (set-mode state :insert))
+    ((:or (:alt \;) (:alt \u2026)) [caret] (flip-selection caret))
+    ((:or (:alt \:) (:alt \u00DA)) [caret] (ensure-selection-forward caret))
     (\g [state] (set-mode state :goto))
     (\v [state] (set-mode state :select))
     (\w [document editor caret] (move-caret-word-forward document editor caret))
@@ -74,10 +79,8 @@
       [state] (set-mode state :normal))
     (_ [state] (set-mode state :normal)))
   (:insert
-    ((:ctrl \a) [document caret] (move-caret-line-start document caret))
-    ((:ctrl \e) [document caret] (move-caret-line-end document caret))
-    ((:ctrl \u0001) [document caret] (move-caret-line-start document caret))
-    ((:ctrl \u0005) [document caret] (move-caret-line-end document caret))
+    ((:or (:ctrl \a) (:ctrl \u0001)) [document caret] (move-caret-line-start document caret))
+    ((:or (:ctrl \e) (:ctrl \u0005)) [document caret] (move-caret-line-end document caret))
     (KeyEvent/VK_BACK_SPACE [write document caret] (backspace document caret))
     (_ [write document caret char] (insert-char document caret char))))
 
@@ -86,17 +89,7 @@
     (caretPositionChanged [_ event]
       (ui/highlight-primary-caret editor event))))
 
-(defn- ensure-selections [editor]
-  (let [caret-model (.getCaretModel editor)]
-    (.runForEachCaret
-      caret-model
-      (fn [caret]
-        (let [offset (.getOffset caret)]
-          (if (= (.getSelectionStart caret) (.getSelectionEnd caret))
-            (.setSelection caret offset (inc offset))))))))
-
 (defn handle-editor-event [project ^EditorImpl editor ^KeyEvent event]
-  #_(ensure-selections editor)
   (let [proj-state (get @state project)
         result (editor-handler project proj-state editor event)]
     (when-not (get-in proj-state [editor :caret-listener])

@@ -14,6 +14,17 @@
     (when (= offset selection-end selection-start)
       (.setSelection caret offset (inc offset)))))
 
+(defn flip-selection [caret]
+  (let [selection-start (.getSelectionStart caret)]
+    (if (= (.getOffset caret) selection-start)
+      (.moveToOffset caret (dec (.getSelectionEnd caret)))
+      (.moveToOffset caret selection-start))))
+
+(defn ensure-selection-forward [caret]
+  (let [selection-start (.getSelectionStart caret)]
+    (when (= (.getOffset caret) selection-start)
+      (.moveToOffset caret (dec (.getSelectionEnd caret))))))
+
 (defn reversed? [caret]
   (let [selection-start (.getSelectionStart caret)
         selection-end (.getSelectionEnd caret)

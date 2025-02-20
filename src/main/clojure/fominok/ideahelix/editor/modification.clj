@@ -3,17 +3,23 @@
 ;; file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 (ns fominok.ideahelix.editor.modification
-  (:require [fominok.ideahelix.editor.selection :refer [ensure-selection]]))
+  (:require [fominok.ideahelix.editor.selection :refer [ensure-selection reversed?]]))
 
-(defn into-insert-mode [caret]
+(defn into-insert-mode-append [caret]
   (let [selection-start (.getSelectionStart caret)
         selection-end (.getSelectionEnd caret)]
     (.moveCaretRelatively caret 1 0 true false)
     (.setSelection caret selection-start selection-end)))
 
+(defn into-insert-mode-prepend [caret]
+  (let [selection-start (.getSelectionStart caret)
+        selection-end (.getSelectionEnd caret)]
+    (.moveToOffset caret selection-start)))
+
 (defn into-normal-mode [caret]
   (if (.hasSelection caret)
-    (.moveToOffset caret (dec (.getOffset caret)))
+    (when-not (reversed? caret)
+      (.moveToOffset caret (dec (.getOffset caret))))
     (ensure-selection caret)))
 
 (defn backspace [document caret]
@@ -22,7 +28,11 @@
 
 (defn insert-char [document caret char]
   (when-not (Character/isISOControl char)
-    (.insertString document (.getOffset caret) (str char))
-    (let [selection-start (.getSelectionStart caret)]
+    (let [selection-start (.getSelectionStart caret)
+          selection-end (.getSelectionEnd caret)
+          reversed (reversed? caret)]
+      (.insertString document (.getOffset caret) (str char))
       (.moveCaretRelatively caret 1 0 false false)
-      (.setSelection caret selection-start (.getOffset caret)))))
+      (if reversed
+        (.setSelection caret (.getOffset caret) (inc selection-end))
+        (.setSelection caret selection-start (.getOffset caret))))))
