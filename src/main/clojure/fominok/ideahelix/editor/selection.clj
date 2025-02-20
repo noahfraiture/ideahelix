@@ -11,7 +11,8 @@
   (let [offset (.getOffset caret)
         selection-start (.getSelectionStart caret)
         selection-end (.getSelectionEnd caret)]
-    (when (= offset selection-end selection-start)
+    (when-not (and (.hasSelection caret)
+                  (or (= offset selection-start) (= offset (dec selection-end))))
       (.setSelection caret offset (inc offset)))))
 
 (defn flip-selection [caret]
@@ -24,6 +25,13 @@
   (let [selection-start (.getSelectionStart caret)]
     (when (= (.getOffset caret) selection-start)
       (.moveToOffset caret (dec (.getSelectionEnd caret))))))
+
+(defn shrink-selection [caret]
+  (let [offset (.getOffset caret)]
+    (.setSelection caret offset (inc offset))))
+
+(defn keep-primary-selection [editor]
+  (.. editor getCaretModel removeSecondaryCarets))
 
 (defn reversed? [caret]
   (let [selection-start (.getSelectionStart caret)
@@ -66,18 +74,18 @@
 
 (defn select-lines
   [document ^CaretImpl caret & {:keys [extend] :or {extend false}}]
-  (let [[selection-start selection-end] (sort [(.getSelectionStart caret)
-                                               (.getSelectionEnd caret)])
+  (let [selection-start (.getSelectionStart caret)
+        selection-end (.getSelectionEnd caret)
         line-start (.getLineNumber document selection-start)
         line-end (.getLineNumber document selection-end)
         start (.getLineStartOffset document line-start)
         end (.getLineEndOffset document line-end)
         extend? (and extend (= selection-start start) (= selection-end end))
         adjusted-end (if extend?
-                       (.getLineEndOffset
-                         document
-                         (min (inc line-end)
-                              (dec (.getLineCount document))))
+                       (inc (.getLineEndOffset
+                              document
+                              (min (inc line-end)
+                                   (dec (.getLineCount document)))))
                        end)]
     (.setSelection caret start adjusted-end)
     (.moveToOffset caret adjusted-end)))

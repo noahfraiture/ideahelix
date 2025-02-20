@@ -7,7 +7,7 @@
   (:require
     [fominok.ideahelix.editor.selection :refer [ensure-selection reversed? degenerate?]])
   (:import (com.intellij.openapi.editor ScrollType)
-           (com.intellij.openapi.editor.actions EditorActionUtil)))
+           (com.intellij.openapi.editor.actions CaretStopPolicy EditorActionUtil)))
 
 (defn scroll-to-primary-caret [editor]
   (.. editor getScrollingModel (scrollToCaret ScrollType/RELATIVE)))
@@ -38,28 +38,23 @@
   (.moveCaretRelatively caret 0 -1 false false)
   (ensure-selection caret))
 
-(defn move-caret-word-forward [document editor caret]
-  (let [selection-start (.getSelectionStart caret)
-        selection-end (.getSelectionEnd caret)
-        reversed (reversed? caret)
-        degenerate (degenerate? caret)]
-    (EditorActionUtil/moveCaretToNextWord editor false true)
-    (if reversed
-      (.setSelection caret selection-start selection-end)
-      (.setSelection caret
-                     (if degenerate selection-start selection-end)
-                     (inc (.getOffset caret))))))
+(defn move-caret-word-forward [editor caret]
+  (let [prev-offset (.getOffset caret)]
+    (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_START false true)
+    (if (= prev-offset (dec (.getOffset caret)))
+      (do
+        (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_START false true)
+        (let [offset (.getOffset caret)]
+          (.moveCaretRelatively caret -1 0 false false)
+          (.setSelection caret (inc prev-offset) offset)))
+      (do
+        (.setSelection caret prev-offset (.getOffset caret))
+        (.moveToOffset caret (dec (.getOffset caret)))))))
 
-(defn move-caret-word-backward [document editor caret]
-  (let [selection-start (.getSelectionStart caret)
-        selection-end (.getSelectionEnd caret)
-        reversed (reversed? caret)
-        degenerate (degenerate? caret)]
-    (EditorActionUtil/moveCaretToPreviousWord editor false true)
-    (if reversed
-      (.setSelection caret (.getOffset caret) selection-start)
-      (.setSelection caret (if degenerate
-                             (.getOffset caret)
-                             selection-start) selection-end))))
+(defn move-caret-word-backward [editor caret]
+  (let [offset (.getOffset caret)
+        prev-offset (if (reversed? caret) offset (inc offset))]
+    (EditorActionUtil/moveToPreviousCaretStop editor CaretStopPolicy/WORD_START false true)
+    (.setSelection caret (.getOffset caret) prev-offset)))
 
 (defn move-caret-line-n [document caret])

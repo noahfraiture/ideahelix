@@ -12,11 +12,10 @@
     (.setSelection caret selection-start selection-end)))
 
 (defn into-insert-mode-prepend [caret]
-  (let [selection-start (.getSelectionStart caret)
-        selection-end (.getSelectionEnd caret)]
+  (let [selection-start (.getSelectionStart caret)]
     (.moveToOffset caret selection-start)))
 
-(defn into-normal-mode [caret]
+(defn leave-insert-mode [caret]
   (if (.hasSelection caret)
     (when-not (reversed? caret)
       (.moveToOffset caret (dec (.getOffset caret))))

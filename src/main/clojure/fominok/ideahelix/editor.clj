@@ -32,7 +32,7 @@
   editor-handler
   (:any
     (KeyEvent/VK_ESCAPE
-      [caret] (into-normal-mode caret)
+      [state caret] (when (= :insert (:mode state)) (leave-insert-mode caret))
       [state] (set-mode state :normal))
     (KeyEvent/VK_SHIFT [] :pass))
   (:normal
@@ -45,16 +45,26 @@
       [state] (set-mode state :insert))
     ((:or (:alt \;) (:alt \u2026)) [caret] (flip-selection caret))
     ((:or (:alt \:) (:alt \u00DA)) [caret] (ensure-selection-forward caret))
+    (\; [caret] (shrink-selection caret))
+    (\, [editor] (keep-primary-selection editor))
     (\g [state] (set-mode state :goto))
     (\v [state] (set-mode state :select))
-    (\w [document editor caret] (move-caret-word-forward document editor caret))
-    (\b [document editor caret] (move-caret-word-backward document editor caret))
+    (\w [editor caret] (move-caret-word-forward editor caret))
+    (\b [editor caret] (move-caret-word-backward editor caret))
     (\x [document caret]  (select-lines document caret :extend true))
     (\X [document caret]  (select-lines document caret :extend false))
-    ((:or \j KeyEvent/VK_DOWN) [caret] (move-caret-down caret))
-    ((:or \k KeyEvent/VK_UP) [caret] (move-caret-up caret))
-    ((:or \h KeyEvent/VK_LEFT) [caret] (move-caret-backward caret))
-    ((:or \l KeyEvent/VK_RIGHT) [caret] (move-caret-forward caret)))
+    ((:or \j KeyEvent/VK_DOWN)
+     [caret] (move-caret-down caret)
+     [editor] (scroll-to-primary-caret editor))
+    ((:or \k KeyEvent/VK_UP)
+     [caret] (move-caret-up caret)
+     [editor] (scroll-to-primary-caret editor))
+    ((:or \h KeyEvent/VK_LEFT)
+     [caret] (move-caret-backward caret)
+     [editor] (scroll-to-primary-caret editor))
+    ((:or \l KeyEvent/VK_RIGHT)
+     [caret] (move-caret-forward caret)
+     [editor] (scroll-to-primary-caret editor)))
   (:select
     (\v [state] (set-mode state :normal))
     (\w
