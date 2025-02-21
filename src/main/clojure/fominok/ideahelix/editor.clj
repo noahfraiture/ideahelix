@@ -30,11 +30,13 @@
 
 (defkeymap
   editor-handler
+
   (:any
     (KeyEvent/VK_ESCAPE
       [state document caret] (when (= :insert (:mode state)) (leave-insert-mode document caret))
       [state] (set-mode state :normal))
     (KeyEvent/VK_SHIFT [] :pass))
+
   ((:or :normal :select)
    (Character/isDigit [char state] (update state :prefix (fnil conj []) char))
    (\d [write document caret] (delete-selection-contents document caret))
@@ -48,8 +50,10 @@
    ((:or (:alt \:) (:alt \u00DA)) [caret] (ensure-selection-forward caret))
    (\; [document caret] (shrink-selection document caret))
    (\, [editor] (keep-primary-selection editor))
-   (\x [document caret]  (select-lines document caret :extend true))
-   (\X [document caret]  (select-lines document caret :extend false)))
+   (\x [document caret] (select-lines document caret :extend true))
+   (\X [document caret] (select-lines document caret :extend false))
+   (\C [editor caret] (add-selection-below editor caret)))
+
   (:normal
     (\g [state] (set-mode state :goto))
     (\v [state] (set-mode state :select))
@@ -67,6 +71,7 @@
     ((:or \l KeyEvent/VK_RIGHT)
      [document caret] (move-caret-forward document caret)
      [editor] (scroll-to-primary-caret editor)))
+
   (:select
     (\g [state] (set-mode state :select-goto))
     (\v [state] (set-mode state :normal))
@@ -84,6 +89,7 @@
     ((:or \l KeyEvent/VK_RIGHT)
      [document caret] (extending document caret (partial move-caret-forward document))
      [editor] (scroll-to-primary-caret editor)))
+
   (:goto
     (Character/isDigit [char state] (update state :prefix conj char))
     (\h
@@ -99,6 +105,7 @@
       [editor] (actions editor "EditorLineStart")
       [state] (set-mode state :normal))
     (_ [state] (set-mode state :normal)))
+
   (:select-goto
     (Character/isDigit [char state] (update state :prefix conj char))
     (\h
@@ -114,6 +121,7 @@
       [editor] (actions editor "EditorLineStart")
       [state] (set-mode state :normal))
     (_ [state] (set-mode state :select)))
+
   (:insert
     ((:or (:ctrl \a) (:ctrl \u0001)) [document caret] (move-caret-line-start document caret))
     ((:or (:ctrl \e) (:ctrl \u0005)) [document caret] (move-caret-line-end document caret))
