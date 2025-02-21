@@ -39,9 +39,10 @@
     (let [selection-start (.getSelectionStart caret)
           selection-end (.getSelectionEnd caret)
           reversed (reversed? caret)
-          offset (.getOffset caret)]
+          offset (.getOffset caret)
+          selection-length (- selection-end selection-start)]
       (.insertString document offset (str char))
       (.moveToOffset caret (binc document offset))
-      (if reversed
+      (if (or (= selection-length 1) reversed)
         (.setSelection caret (.getOffset caret) (binc document selection-end))
         (.setSelection caret selection-start (.getOffset caret))))))

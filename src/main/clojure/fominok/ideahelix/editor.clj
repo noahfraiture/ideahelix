@@ -40,6 +40,10 @@
   ((:or :normal :select)
    (Character/isDigit [char state] (update state :prefix (fnil conj []) char))
    (\d [write document caret] (delete-selection-contents document caret))
+   (\c
+     [write document caret] (do (delete-selection-contents document caret)
+                                (into-insert-mode-prepend caret))
+     [state] (set-mode state :insert))
    (\a
      [caret] (into-insert-mode-append caret)
      [state] (set-mode state :insert))
