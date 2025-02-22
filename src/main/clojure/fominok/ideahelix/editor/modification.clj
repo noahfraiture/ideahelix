@@ -7,12 +7,12 @@
     [fominok.ideahelix.editor.util
      :refer [inc-within-bounds dec-within-bounds]
      :rename {inc-within-bounds binc dec-within-bounds bdec}]
-    [fominok.ideahelix.editor.selection :refer [ensure-selection reversed?]]))
+    [fominok.ideahelix.editor.selection :refer [ensure-selection reversed? degenerate?]]))
 
 (defn into-insert-mode-append [caret]
   (let [selection-start (.getSelectionStart caret)
         selection-end (.getSelectionEnd caret)]
-    (.moveCaretRelatively caret 1 0 true false)
+    (.moveToOffset caret selection-end)
     (.setSelection caret selection-start selection-end)))
 
 (defn into-insert-mode-prepend [caret]
@@ -21,7 +21,7 @@
 
 (defn leave-insert-mode [document caret]
   (if (.hasSelection caret)
-    (when-not (reversed? caret)
+    (when-not (or (degenerate? caret) (reversed? caret))
       (.moveToOffset caret (bdec (.getOffset caret))))
     (ensure-selection document caret)))
 
@@ -34,8 +34,21 @@
   (let [offset (.getOffset caret)]
     (.setSelection caret offset (binc document offset))))
 
+(defn insert-newline [document caret]
+  (let [selection-start (.getSelectionStart caret)
+        selection-end (.getSelectionEnd caret)
+        reversed (reversed? caret)
+        offset (.getOffset caret)
+        selection-length (- selection-end selection-start)]
+    (.insertString document offset "\n")
+    (.moveToOffset caret (binc document offset))
+    #_(if (or (= selection-length 1) reversed)
+        (.setSelection caret (.getOffset caret) (binc document selection-end))
+        (.setSelection caret selection-start (.getOffset caret)))))
+
+
 (defn insert-char [document caret char]
-  (when-not (Character/isISOControl char)
+  (when-not (and (not= char \return \newline) (Character/isISOControl char))
     (let [selection-start (.getSelectionStart caret)
           selection-end (.getSelectionEnd caret)
           reversed (reversed? caret)
@@ -43,6 +56,6 @@
           selection-length (- selection-end selection-start)]
       (.insertString document offset (str char))
       (.moveToOffset caret (binc document offset))
-      (if (or (= selection-length 1) reversed)
+      (if (or (and (= offset selection-start) (= selection-length 1)) reversed)
         (.setSelection caret (.getOffset caret) (binc document selection-end))
         (.setSelection caret selection-start (.getOffset caret))))))

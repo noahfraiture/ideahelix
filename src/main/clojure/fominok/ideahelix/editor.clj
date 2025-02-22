@@ -130,6 +130,7 @@
     ((:or (:ctrl \a) (:ctrl \u0001)) [document caret] (move-caret-line-start document caret))
     ((:or (:ctrl \e) (:ctrl \u0005)) [document caret] (move-caret-line-end document caret))
     (KeyEvent/VK_BACK_SPACE [write document caret] (backspace document caret))
+    (KeyEvent/VK_ENTER [write document caret] (insert-newline document caret))
     (_ [write document caret char] (insert-char document caret char))))
 
 (defn- caret-listener [editor]
