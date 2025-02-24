@@ -3,11 +3,16 @@
 ;; file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 (ns fominok.ideahelix.editor.selection
-  (:require [fominok.ideahelix.editor.util
-             :refer [inc-within-bounds dec-within-bounds]
-             :rename {inc-within-bounds binc dec-within-bounds bdec}])
-  (:import (com.intellij.openapi.editor VisualPosition)
-           (com.intellij.openapi.editor.impl CaretImpl)))
+  (:require
+    [fominok.ideahelix.editor.util
+     :refer [inc-within-bounds dec-within-bounds]
+     :rename {inc-within-bounds binc dec-within-bounds bdec}])
+  (:import
+    (com.intellij.openapi.editor
+      VisualPosition)
+    (com.intellij.openapi.editor.impl
+      CaretImpl)))
+
 
 (defn ensure-selection
   "Keep at least one character selection"
@@ -16,28 +21,38 @@
         selection-start (.getSelectionStart caret)
         selection-end (.getSelectionEnd caret)]
     (when-not (and (.hasSelection caret)
-                  (or (= offset selection-start) (= offset (bdec selection-end))))
+                   (or (= offset selection-start) (= offset (bdec selection-end))))
       (.setSelection caret offset (binc document offset)))))
 
-(defn flip-selection [caret]
+
+(defn flip-selection
+  [caret]
   (let [selection-start (.getSelectionStart caret)]
     (if (= (.getOffset caret) selection-start)
       (.moveToOffset caret (bdec (.getSelectionEnd caret)))
       (.moveToOffset caret selection-start))))
 
-(defn ensure-selection-forward [caret]
+
+(defn ensure-selection-forward
+  [caret]
   (let [selection-start (.getSelectionStart caret)]
     (when (= (.getOffset caret) selection-start)
       (.moveToOffset caret (bdec (.getSelectionEnd caret))))))
 
-(defn shrink-selection [document caret]
+
+(defn shrink-selection
+  [document caret]
   (let [offset (.getOffset caret)]
     (.setSelection caret offset (binc document offset))))
 
-(defn keep-primary-selection [editor]
+
+(defn keep-primary-selection
+  [editor]
   (.. editor getCaretModel removeSecondaryCarets))
 
-(defn reversed? [caret]
+
+(defn reversed?
+  [caret]
   (let [selection-start (.getSelectionStart caret)
         selection-end (.getSelectionEnd caret)
         offset (.getOffset caret)]
@@ -45,7 +60,9 @@
       (= offset selection-start)
       (< selection-start (bdec selection-end)))))
 
-(defn degenerate? [caret]
+
+(defn degenerate?
+  [caret]
   (let [selection-start (.getSelectionStart caret)
         selection-end (.getSelectionEnd caret)
         offset (.getOffset caret)]
@@ -76,6 +93,7 @@
        reversed (.setSelection caret new-offset selection-end)
        :else (.setSelection caret selection-start (binc document new-offset))))))
 
+
 (defn select-lines
   [document ^CaretImpl caret & {:keys [extend] :or {extend false}}]
   (let [selection-start (.getSelectionStart caret)
@@ -94,12 +112,16 @@
     (.setSelection caret start adjusted-end)
     (.moveToOffset caret adjusted-end)))
 
-(defn- line-length [document n]
+
+(defn- line-length
+  [document n]
   (let [start-offset (.getLineStartOffset document n)
         end-offset (.getLineEndOffset document n)]
     (- end-offset start-offset)))
 
-(defn- scan-next-selection-placement [document height start end lines-count]
+
+(defn- scan-next-selection-placement
+  [document height start end lines-count]
   (let [start-column (.column start)
         end-column (.column end)]
     (loop [line (+ height 1 (.line start))]
@@ -112,7 +134,9 @@
               [line line-end]
               (recur (inc line)))))))))
 
-(defn add-selection-below [editor caret]
+
+(defn add-selection-below
+  [editor caret]
   (let [model (.getCaretModel editor)
         document (.getDocument editor)
         selection-start (.offsetToLogicalPosition editor (.getSelectionStart caret))

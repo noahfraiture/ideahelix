@@ -3,10 +3,17 @@
 ;; file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 (ns fominok.ideahelix.editor.action
-  (:import (com.intellij.openapi.actionSystem ActionManager ActionPlaces AnActionEvent)
-           (com.intellij.openapi.editor.impl EditorImpl)))
+  (:import
+    (com.intellij.openapi.actionSystem
+      ActionManager
+      ActionPlaces
+      AnActionEvent)
+    (com.intellij.openapi.editor.impl
+      EditorImpl)))
 
-(defn actions [^EditorImpl editor & action-names]
+
+(defn actions
+  [^EditorImpl editor & action-names]
   (let [data-context (.getDataContext editor)]
     (doseq [action-name action-names]
       (let [action (.getAction (ActionManager/getInstance) action-name)]

@@ -4,18 +4,29 @@
 
 (ns fominok.ideahelix.keymap
   "Keymap definition utilities."
-  (:require [clojure.spec.alpha :as s])
-  (:import (com.intellij.openapi.command CommandProcessor WriteCommandAction)
-           (com.intellij.openapi.command.impl FinishMarkAction StartMarkAction)
-           (com.intellij.openapi.editor.impl EditorImpl)
-           (com.intellij.openapi.project Project)
-           (java.awt.event KeyEvent)))
+  (:require
+    [clojure.spec.alpha :as s])
+  (:import
+    (com.intellij.openapi.command
+      CommandProcessor
+      WriteCommandAction)
+    (com.intellij.openapi.command.impl
+      FinishMarkAction
+      StartMarkAction)
+    (com.intellij.openapi.editor.impl
+      EditorImpl)
+    (com.intellij.openapi.project
+      Project)
+    (java.awt.event
+      KeyEvent)))
+
 
 ;; Key matcher.
 (s/def ::matcher-core
   (s/or :symbol symbol?
         :int int?
         :char char?))
+
 
 ;; Matcher with possible modifier key applied.
 (s/def ::matcher
@@ -30,15 +41,16 @@
               :tag (partial = :or)
               :matchers (s/+ ::matcher))))
 
+
 ;; One of possible dependencies of the statement to expect.
 (s/def ::dep
-  (s/or :char (partial = 'char) ;; typed character
-        :editor (partial = 'editor) ;; editor in focus
-        :state (partial = 'state) ;; ideahelix->project->editor state
-        :document (partial = 'document) ;; document instance running in the editor
-        :caret (partial = 'caret) ;; one caret, makes body applied to each one equally
+  (s/or :char (partial = 'char) ; typed character
+        :editor (partial = 'editor) ; editor in focus
+        :state (partial = 'state) ; ideahelix->project->editor state
+        :document (partial = 'document) ; document instance running in the editor
+        :caret (partial = 'caret) ; one caret, makes body applied to each one equally
         :project (partial = 'project)
-        :write (partial = 'write))) ;; wrap into "critical section" required on modifications)) ;; wraps body into a single undoable action
+        :write (partial = 'write))) ; wrap into "critical section" required on modifications)) ;; wraps body into a single undoable action
 
 
 ;; Statement to execute. If the statement is just a :pass keyword
@@ -47,12 +59,14 @@
   (s/or :pass (partial = :pass)
         :statement any?))
 
+
 ;; Similarly to function definitions, body is made of arguments vector
 ;; and a statement to execute.
 (s/def ::body
   (s/cat
     :deps (s/spec (s/coll-of ::dep))
     :statement ::statement))
+
 
 ;; Key* to bodies to execute mapping, where input can be matched in several ways.
 ;; There are several bodies possible that will be executed sequentially with
@@ -63,10 +77,12 @@
          :undoable (s/? (partial = :undoable))
          :bodies (s/+ ::body)))
 
+
 (s/def ::mode-name
   (s/or :name keyword?
         :or (s/cat :tag (partial = :or)
                    :mode-names (s/+ keyword?))))
+
 
 ;; Top-level sections of `defkeymap` are grouped by Helix mode with key
 ;; mappings defined inside for each
@@ -75,11 +91,14 @@
     :mode ::mode-name
     :mappings (s/+ (s/spec ::mapping))))
 
+
 ;; The top level spec for `defkeymap` contents
 (s/def ::defkeymap
   (s/coll-of ::mode))
 
-(defn- process-single-matcher [matcher]
+
+(defn- process-single-matcher
+  [matcher]
   "Matching process happens through a nested map attempting to do so with modifier,
   then matcher type and the actual matcher, and this function builds such a path of
   nested maps.
@@ -100,6 +119,7 @@
       [:any]
       [modifier matcher-type evaluated-matcher])))
 
+
 (defn- process-matcher
   "process-single-matcher has the core logic, but first we handle (:or ...) construct"
   [matcher]
@@ -107,6 +127,7 @@
     (let [matchers (get-in matcher [1 :matchers])]
       (map process-single-matcher matchers))
     [(process-single-matcher matcher)]))
+
 
 (defn- process-body
   "Taking a dependencies vector and a statement, this function wraps the statement
@@ -130,19 +151,20 @@
         write-sym (get-in deps-bindings-split [:write 0 1])
         gen-statement
         (cond-> (second statement)
-                caret-sym
-                ((fn [s]
-                   `(let [caret-model# (.getCaretModel ~editor)]
-                      (.runForEachCaret
-                        caret-model#
-                        (fn [~caret-sym] ~s)))))
-                write-sym
-                ((fn [s]
-                   `(WriteCommandAction/runWriteCommandAction
-                      ~project
-                      (fn [] ~s)))))]
+          caret-sym
+          ((fn [s]
+             `(let [caret-model# (.getCaretModel ~editor)]
+                (.runForEachCaret
+                  caret-model#
+                  (fn [~caret-sym] ~s)))))
+          write-sym
+          ((fn [s]
+             `(WriteCommandAction/runWriteCommandAction
+                ~project
+                (fn [] ~s)))))]
     `(let ~deps-bindings-top
        ~gen-statement)))
+
 
 (defn- process-bodies
   "Builds handler function made of sequentially executed statements with dependencies
@@ -185,12 +207,15 @@
     {}
     mappings))
 
-(defn- flatten-modes [acc {:keys [mode mappings]}]
+
+(defn- flatten-modes
+  [acc {:keys [mode mappings]}]
   (case (first mode)
     :name (update acc (second mode) (fnil concat []) mappings)
     :or (reduce
           (fn [inner-acc mode-name]
             (update inner-acc mode-name (fnil concat []) mappings)) acc (get-in mode [1 :mode-names]))))
+
 
 (defmacro defkeymap
   "Define a keymap function that matches a key event by set of rules and handles it."

@@ -3,13 +3,22 @@
 ;; file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 (ns fominok.ideahelix.editor.ui
-  (:require [clojure.string :as str])
-  (:import (com.intellij.openapi.editor CaretVisualAttributes CaretVisualAttributes$Weight)
-           (com.intellij.openapi.wm WindowManager)
-           (com.intellij.ui JBColor)
-           (fominok.ideahelix ModePanel)))
+  (:require
+    [clojure.string :as str])
+  (:import
+    (com.intellij.openapi.editor
+      CaretVisualAttributes
+      CaretVisualAttributes$Weight)
+    (com.intellij.openapi.wm
+      WindowManager)
+    (com.intellij.ui
+      JBColor)
+    (fominok.ideahelix
+      ModePanel)))
 
-(defn update-mode-panel! [project editor-state]
+
+(defn update-mode-panel!
+  [project editor-state]
   (let [id (ModePanel/ID)
         status-bar (.. WindowManager getInstance (getStatusBar project))
         widget (.getWidget status-bar id)
@@ -21,7 +30,9 @@
     (.setText widget widget-text)
     (.updateWidget status-bar id)))
 
-(defn highlight-primary-caret [editor event]
+
+(defn highlight-primary-caret
+  [editor event]
   (let [primary-caret (.. editor getCaretModel getPrimaryCaret)
         primary-attributes
         (CaretVisualAttributes. JBColor/GRAY CaretVisualAttributes$Weight/HEAVY)
