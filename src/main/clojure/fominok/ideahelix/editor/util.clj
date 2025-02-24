@@ -9,3 +9,7 @@
 
 (defn dec-within-bounds [n]
   (max 0 (dec n)))
+
+(defn for-each-caret [editor f]
+  (let [model (.getCaretModel editor)]
+    (.runForEachCaret model f)))

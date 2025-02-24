@@ -5,8 +5,10 @@
 (ns fominok.ideahelix.keymap
   "Keymap definition utilities."
   (:require [clojure.spec.alpha :as s])
-  (:import (com.intellij.openapi.command WriteCommandAction)
+  (:import (com.intellij.openapi.command CommandProcessor WriteCommandAction)
+           (com.intellij.openapi.command.impl FinishMarkAction StartMarkAction)
            (com.intellij.openapi.editor.impl EditorImpl)
+           (com.intellij.openapi.project Project)
            (java.awt.event KeyEvent)))
 
 ;; Key matcher.
@@ -30,13 +32,13 @@
 
 ;; One of possible dependencies of the statement to expect.
 (s/def ::dep
-  (s/or :char (partial = 'char)
-        :editor (partial = 'editor)
-        :state (partial = 'state)
-        :document (partial = 'document)
-        :caret (partial = 'caret)
+  (s/or :char (partial = 'char) ;; typed character
+        :editor (partial = 'editor) ;; editor in focus
+        :state (partial = 'state) ;; ideahelix->project->editor state
+        :document (partial = 'document) ;; document instance running in the editor
+        :caret (partial = 'caret) ;; one caret, makes body applied to each one equally
         :project (partial = 'project)
-        :write (partial = 'write)))
+        :write (partial = 'write))) ;; wrap into "critical section" required on modifications)) ;; wraps body into a single undoable action
 
 
 ;; Statement to execute. If the statement is just a :pass keyword
@@ -57,6 +59,8 @@
 ;; their own dependencies each.
 (s/def ::mapping
   (s/cat :matcher ::matcher
+         :doc (s/? string?)
+         :undoable (s/? (partial = :undoable))
          :bodies (s/+ ::body)))
 
 (s/def ::mode-name
@@ -111,7 +115,7 @@
   For `write` dependency the `runWriteCommandAction` wrapper is used to comply with
   Idea's requirements."
   [project state editor event {:keys [deps statement]}]
-  (let [deps-bindings-split (group-by #(#{:caret :write} (first %)) deps)
+  (let [deps-bindings-split (group-by #(#{:caret :write :undoable-action} (first %)) deps)
         deps-bindings-top
         (into [] (mapcat
                    (fn [[kw sym]]
@@ -124,34 +128,49 @@
                    (get deps-bindings-split nil)))
         caret-sym (get-in deps-bindings-split [:caret 0 1])
         write-sym (get-in deps-bindings-split [:write 0 1])
-        statement (second statement)
-        gen-statement (if caret-sym
-                        `(let [caret-model# (.getCaretModel ~editor)]
-                           (.runForEachCaret
-                             caret-model#
-                             (fn [~caret-sym] ~statement)))
-                        statement)
-        write-wrapped-statement
-        (if write-sym
-          `(WriteCommandAction/runWriteCommandAction
-             ~project
-             (fn [] ~gen-statement))
-          gen-statement)]
-
+        gen-statement
+        (cond-> (second statement)
+                caret-sym
+                ((fn [s]
+                   `(let [caret-model# (.getCaretModel ~editor)]
+                      (.runForEachCaret
+                        caret-model#
+                        (fn [~caret-sym] ~s)))))
+                write-sym
+                ((fn [s]
+                   `(WriteCommandAction/runWriteCommandAction
+                      ~project
+                      (fn [] ~s)))))]
     `(let ~deps-bindings-top
-       ~write-wrapped-statement)))
+       ~gen-statement)))
 
 (defn- process-bodies
   "Builds handler function made of sequentially executed statements with dependencies
   injected for each."
-  [bodies]
+  [bodies undoable doc]
   (let [project (gensym "project")
         state (gensym "state")
         editor (gensym "editor")
         event (gensym "event")
-        bodies (map (partial process-body project state editor event) bodies)]
-    `(fn [~project ~state ^EditorImpl ~editor ^KeyEvent ~event]
-       (do ~@bodies))))
+        bodies (map (partial process-body project state editor event) bodies)
+        docstring (or (str "IHx: " doc) "IdeaHelix command")
+        statement
+        (if undoable
+          `(let [return# (volatile! nil)]
+             (.. CommandProcessor getInstance
+                 (executeCommand
+                   ~project
+                   (fn []
+                     (let [start# (StartMarkAction/start ~editor ~project ~docstring)]
+                       (vreset! return# (do ~@bodies))
+                       (FinishMarkAction/finish ~project ~editor start#)))
+                   ~docstring
+                   nil))
+             @return#)
+          `(do ~@bodies))]
+    `(fn [^Project ~project ~state ^EditorImpl ~editor ^KeyEvent ~event]
+       ~statement)))
+
 
 (defn- process-mappings
   "Inserts into mode mapping a handler function (sexp)
@@ -159,7 +178,7 @@
   [mappings]
   (reduce
     (fn [acc m]
-      (let [bodies (process-bodies (:bodies m))
+      (let [bodies (process-bodies (:bodies m) (:undoable m) (:doc m))
             match-paths (process-matcher (:matcher m))]
         (reduce (fn [a p] (assoc-in a p bodies)) acc match-paths)))
 

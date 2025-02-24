@@ -5,7 +5,7 @@
 (ns fominok.ideahelix.core
   (:require [nrepl.server :refer [start-server]]
             [cider.nrepl :refer (cider-nrepl-handler)]
-            [fominok.ideahelix.editor :refer [handle-editor-event set-mode!]])
+            [fominok.ideahelix.editor :refer [handle-editor-event]])
   (:import (com.intellij.openapi.editor.impl EditorComponentImpl)))
 
 (set! *warn-on-reflection* true)
@@ -16,9 +16,5 @@
     (handle-editor-event project (.getEditor ^EditorComponentImpl focus-owner) event)
 
     false))
-
-(defn init-project [project]
-  (set-mode! project :normal))
-
 
 (defonce -server (start-server :port 7888 :handler cider-nrepl-handler))

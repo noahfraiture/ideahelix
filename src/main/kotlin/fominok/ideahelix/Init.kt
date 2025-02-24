@@ -30,8 +30,8 @@ class Init : ProjectActivity {
 
             pushEvent = Clojure.`var`("fominok.ideahelix.core", "push-event") as IFn
 
-            val initFn = Clojure.`var`("fominok.ideahelix.core", "init-project") as IFn
-            initFn.invoke(project)
+            // val initFn = Clojure.`var`("fominok.ideahelix.core", "init-project") as IFn
+            // initFn.invoke(project)
         } finally {
             currentThread.contextClassLoader = originalClassLoader
 

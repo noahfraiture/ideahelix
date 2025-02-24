@@ -9,14 +9,14 @@
            (com.intellij.ui JBColor)
            (fominok.ideahelix ModePanel)))
 
-(defn update-mode-panel! [project project-state]
+(defn update-mode-panel! [project editor-state]
   (let [id (ModePanel/ID)
         status-bar (.. WindowManager getInstance (getStatusBar project))
         widget (.getWidget status-bar id)
-        mode-text (str/upper-case (name (:mode project-state)))
+        mode-text (str/upper-case (name (:mode editor-state)))
         widget-text
         (str
-          (when-let [prefix (:prefix project-state)] (format "(%s) " (apply str prefix)))
+          (when-let [prefix (:prefix editor-state)] (format "(%s) " (apply str prefix)))
           mode-text)]
     (.setText widget widget-text)
     (.updateWidget status-bar id)))

@@ -7,7 +7,9 @@
     [fominok.ideahelix.editor.util
      :refer [inc-within-bounds dec-within-bounds]
      :rename {inc-within-bounds binc dec-within-bounds bdec}]
-    [fominok.ideahelix.editor.selection :refer [ensure-selection reversed? degenerate?]]))
+    [fominok.ideahelix.editor.selection :refer [ensure-selection reversed? degenerate?]])
+  (:import (com.intellij.openapi.command CommandProcessor)
+           (com.intellij.openapi.command.impl FinishMarkAction StartMarkAction)))
 
 (defn into-insert-mode-append [caret]
   (let [selection-start (.getSelectionStart caret)
@@ -18,6 +20,14 @@
 (defn into-insert-mode-prepend [caret]
   (let [selection-start (.getSelectionStart caret)]
     (.moveToOffset caret selection-start)))
+
+(defn finish-undo [project editor start-mark]
+  (.. CommandProcessor getInstance
+      (executeCommand
+        project
+        (fn [] (FinishMarkAction/finish project editor start-mark))
+        "IHx: Insertion"
+        nil)))
 
 (defn leave-insert-mode [document caret]
   (if (.hasSelection caret)
@@ -35,17 +45,21 @@
     (.setSelection caret offset (binc document offset))))
 
 (defn insert-newline [document caret]
-  (let [selection-start (.getSelectionStart caret)
-        selection-end (.getSelectionEnd caret)
-        reversed (reversed? caret)
-        offset (.getOffset caret)
-        selection-length (- selection-end selection-start)]
+  (let [offset (.getOffset caret)]
     (.insertString document offset "\n")
-    (.moveToOffset caret (binc document offset))
-    #_(if (or (= selection-length 1) reversed)
-        (.setSelection caret (.getOffset caret) (binc document selection-end))
-        (.setSelection caret selection-start (.getOffset caret)))))
+    (.moveToOffset caret (binc document offset))))
 
+(defn start-undo [project editor]
+  (let [return (volatile! nil)]
+    (.. CommandProcessor getInstance
+        (executeCommand
+          project
+          (fn []
+            (let [start (StartMarkAction/start editor project "IHx: Insertion")]
+              (vreset! return start)))
+          "IHx: Insertion"
+          nil))
+    @return))
 
 (defn insert-char [document caret char]
   (when-not (and (not= char \return \newline) (Character/isISOControl char))
