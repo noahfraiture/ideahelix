@@ -53,7 +53,8 @@
   ((:or :normal :select)
    (\u "Undo"
        [editor] (actions editor IdeActions/ACTION_UNDO))
-
+   ((:shift \%) [editor document] (select-buffer editor document))
+   (\s [project editor document] (select-in-selections project editor document))
    (Character/isDigit "Add prefix arg" :keep-prefix [char state] (update state :prefix (fnil conj []) char))
    (\d "Delete selections" :undoable :write
        [document caret] (delete-selection-contents document caret))

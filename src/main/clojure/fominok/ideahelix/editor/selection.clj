@@ -5,13 +5,19 @@
 (ns fominok.ideahelix.editor.selection
   (:require
     [fominok.ideahelix.editor.util
-     :refer [inc-within-bounds dec-within-bounds]
+     :refer [inc-within-bounds dec-within-bounds for-each-caret]
      :rename {inc-within-bounds binc dec-within-bounds bdec}])
   (:import
     (com.intellij.openapi.editor
       VisualPosition)
     (com.intellij.openapi.editor.impl
-      CaretImpl)))
+      CaretImpl)
+    (com.intellij.openapi.project
+      Project)
+    (com.intellij.openapi.ui
+      Messages)
+    (com.intellij.openapi.util
+      TextRange)))
 
 
 (defn ensure-selection
@@ -152,3 +158,48 @@
                                 (.column selection-start))
                              (+ (.getLineStartOffset document next-line-end)
                                 (.column selection-end)))))))
+
+
+(defn select-buffer
+  [editor document]
+  (let [caret (.. editor getCaretModel getPrimaryCaret)
+        length (bdec (.getTextLength document))]
+    (.moveToOffset caret length)
+    (.setSelection caret 0 length)))
+
+
+(defn regex-matches-with-positions
+  [pattern text]
+  (let [matcher (re-matcher pattern text)]
+    (loop [results []]
+      (if (.find matcher)
+        (recur (conj results {:start (.start matcher)
+                              :end (.end matcher)}))
+        results))))
+
+
+(defn select-in-selections
+  [^Project project editor document]
+  (let [model (.getCaretModel editor)
+        primary (.getPrimaryCaret model)
+        input (Messages/showInputDialog
+                project
+                "select:"
+                "Select in selections"
+                (Messages/getQuestionIcon))
+        pattern (when (not (empty? input)) (re-pattern input))
+        matches
+        (and pattern
+             (->> (.getAllCarets model)
+                  (map (fn [caret] [(.getSelectionStart caret) (.getText document (.getSelectionRange caret))]))
+                  (map (fn [[offset text]]
+                         (map #(update-vals % (partial + offset))
+                              (regex-matches-with-positions pattern text))))
+                  flatten))]
+    (when-let [{:keys [start end]} (first matches)]
+      (.removeSecondaryCarets model)
+      (.moveToOffset primary (bdec end))
+      (.setSelection primary start end))
+    (doseq [{:keys [start end]} (rest matches)]
+      (when-let [caret (.addCaret model (.offsetToVisualPosition editor (bdec end)))]
+        (.setSelection caret start end)))))
