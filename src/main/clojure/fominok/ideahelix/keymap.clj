@@ -37,6 +37,9 @@
         :with-alt (s/cat
                     :tag (partial = :alt)
                     :matcher-core ::matcher-core)
+        :with-shift (s/cat
+                      :tag (partial = :shift)
+                      :matcher-core ::matcher-core)
         :or (s/cat
               :tag (partial = :or)
               :matchers (s/+ ::matcher))))
@@ -228,7 +231,8 @@
               (update-vals $ process-mappings))]
     `(defn ~ident [project# state# ^EditorImpl editor# ^KeyEvent event#]
        (let [modifier# (or (when (.isControlDown event#) :ctrl)
-                           (when (.isAltDown event#) :alt))
+                           (when (.isAltDown event#) :alt)
+                           (when (.isShiftDown event#) :shift))
              mode# (:mode state#)
              any-mode-matchers# (get-in ~rules [:any modifier#])
              cur-mode-matchers# (get-in ~rules [mode# modifier#])

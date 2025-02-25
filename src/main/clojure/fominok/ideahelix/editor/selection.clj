@@ -77,21 +77,17 @@
    (let [selection-start (.getSelectionStart caret)
          selection-end (.getSelectionEnd caret)
          previous-offset (.getOffset caret)
-         degenerate (and
-                      (= previous-offset selection-start)
-                      (= previous-offset (bdec selection-end)))
-         reversed (and
-                    (= previous-offset selection-start)
-                    (< selection-start selection-end))
+         anchor (if (= selection-start previous-offset)
+                  selection-end
+                  selection-start)
          _ (f caret)
          new-offset (.getOffset caret)
          move-right (> new-offset previous-offset)]
-
-     (cond
-       (and degenerate move-right) (.setSelection caret selection-start (binc document new-offset))
-       degenerate (.setSelection caret new-offset selection-end)
-       reversed (.setSelection caret new-offset selection-end)
-       :else (.setSelection caret selection-start (binc document new-offset))))))
+     (if (and move-right (= new-offset anchor))
+       (.setSelection caret (bdec anchor) (binc document new-offset))
+       (if (>= new-offset anchor)
+         (.setSelection caret anchor (binc document new-offset))
+         (.setSelection caret new-offset anchor))))))
 
 
 (defn select-lines

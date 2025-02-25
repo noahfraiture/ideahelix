@@ -48,8 +48,7 @@
         (if (= :insert (:mode state))
           (do (finish-undo project editor (:mark-action state))
               (dissoc new-state :mark-action))
-          new-state)))
-    (KeyEvent/VK_SHIFT [] :pass))
+          new-state))))
 
   ((:or :normal :select)
    (\u "Undo"
@@ -121,10 +120,13 @@
      :undoable
      [state document caret]
      (dotimes [_ (get-prefix state)] (move-caret-forward document caret))
-     [editor] (scroll-to-primary-caret editor)))
+     [editor] (scroll-to-primary-caret editor))
+    ((:shift \G) "Move to line number" :undoable
+                 [state editor document] (move-caret-line-n editor document (get-prefix state))
+                 [state] (assoc state :mode :normal)))
 
   (:select
-    (\g "Goto mode extending" :undoable
+    (\g "Goto mode extending" :undoable :keep-prefix
         [state] (assoc state :mode :select-goto))
     (\v "Back to normal mode" [state] (assoc state :mode :normal))
     (\w "Select word forward extending" :undoable
@@ -156,10 +158,15 @@
      :undoable
      [state document caret]
      (dotimes [_ (get-prefix state)] (extending document caret (partial move-caret-forward document)))
-     [editor] (scroll-to-primary-caret editor)))
+     [editor] (scroll-to-primary-caret editor))
+    ((:shift \G) "Move to line number" :undoable
+                 [state editor document]
+                 (let [caret (.. editor getCaretModel getPrimaryCaret)]
+                   (extending document caret (fn [_] (move-caret-line-n editor document (get-prefix state))))
+                   (assoc state :mode :select))))
 
   (:goto
-    (Character/isDigit "Add prefix arg" [char state] (update state :prefix conj char))
+    (Character/isDigit "Add prefix arg" :keep-prefix [char state] (update state :prefix conj char))
     (\h "Move carets to line start" :undoable
         [document caret] (move-caret-line-start document caret)
         [state] (assoc state :mode :normal))
@@ -172,16 +179,18 @@
     (_ [state] (assoc state :mode :normal)))
 
   (:select-goto
-    (Character/isDigit "Add prefix arg" [char state] (update state :prefix conj char))
+    (Character/isDigit "Add prefix arg" :keep-prefix [char state] (update state :prefix conj char))
     (\h "Move carets to line start extending" :undoable
         [document caret] (extending document caret (partial move-caret-line-start document))
         [state] (assoc state :mode :select))
     (\l "Move carets to line end extending" :undoable
         [document caret] (extending document caret (partial move-caret-line-end document))
         [state] (assoc state :mode :select))
-    (\g "Move to line number extending" :undoable
-        [document caret] (extending document caret (partial move-caret-line-n document))
-        [state] (assoc state :mode :select))
+    (\g "Move to line number" :undoable
+        [state editor document]
+        (let [caret (.. editor getCaretModel getPrimaryCaret)]
+          (extending document caret (fn [_] (move-caret-line-n editor document (get-prefix state))))
+          (assoc state :mode :select)))
     (_ [state] (assoc state :mode :select)))
 
   (:insert
