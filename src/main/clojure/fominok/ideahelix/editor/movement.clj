@@ -85,4 +85,10 @@
 
 
 (defn move-caret-line-n
-  [document caret])
+  [editor document n]
+  (let [line-n (dec (min n (.getLineCount document)))
+        model (.getCaretModel editor)
+        offset (.getLineStartOffset document line-n)]
+    (.removeSecondaryCarets model)
+    (.moveToOffset model offset)
+    (ensure-selection document (.getPrimaryCaret model))))

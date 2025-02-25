@@ -49,8 +49,7 @@
         :state (partial = 'state) ; ideahelix->project->editor state
         :document (partial = 'document) ; document instance running in the editor
         :caret (partial = 'caret) ; one caret, makes body applied to each one equally
-        :project (partial = 'project)
-        :write (partial = 'write))) ; wrap into "critical section" required on modifications)) ;; wraps body into a single undoable action
+        :project (partial = 'project))) ; wrap into "critical section" required on modifications)) ;; wraps body into a single undoable action
 
 
 ;; Statement to execute. If the statement is just a :pass keyword
@@ -74,7 +73,9 @@
 (s/def ::mapping
   (s/cat :matcher ::matcher
          :doc (s/? string?)
-         :undoable (s/? (partial = :undoable))
+         :extras (s/* (s/or :undoable (partial = :undoable)
+                            :keep-prefix (partial = :keep-prefix)
+                            :write (partial = :write)))
          :bodies (s/+ ::body)))
 
 
@@ -132,11 +133,9 @@
 (defn- process-body
   "Taking a dependencies vector and a statement, this function wraps the statement
   with requested dependencies with symbols linked.
-  For `caret` dependency the body will be executed for each caret.
-  For `write` dependency the `runWriteCommandAction` wrapper is used to comply with
-  Idea's requirements."
+  For `caret` dependency the body will be executed for each caret."
   [project state editor event {:keys [deps statement]}]
-  (let [deps-bindings-split (group-by #(#{:caret :write :undoable-action} (first %)) deps)
+  (let [deps-bindings-split (group-by #(#{:caret} (first %)) deps)
         deps-bindings-top
         (into [] (mapcat
                    (fn [[kw sym]]
@@ -148,7 +147,6 @@
                             :editor editor)])
                    (get deps-bindings-split nil)))
         caret-sym (get-in deps-bindings-split [:caret 0 1])
-        write-sym (get-in deps-bindings-split [:write 0 1])
         gen-statement
         (cond-> (second statement)
           caret-sym
@@ -156,12 +154,7 @@
              `(let [caret-model# (.getCaretModel ~editor)]
                 (.runForEachCaret
                   caret-model#
-                  (fn [~caret-sym] ~s)))))
-          write-sym
-          ((fn [s]
-             `(WriteCommandAction/runWriteCommandAction
-                ~project
-                (fn [] ~s)))))]
+                  (fn [~caret-sym] ~s))))))]
     `(let ~deps-bindings-top
        ~gen-statement)))
 
@@ -169,7 +162,7 @@
 (defn- process-bodies
   "Builds handler function made of sequentially executed statements with dependencies
   injected for each."
-  [bodies undoable doc]
+  [bodies extras doc]
   (let [project (gensym "project")
         state (gensym "state")
         editor (gensym "editor")
@@ -177,19 +170,28 @@
         bodies (map (partial process-body project state editor event) bodies)
         docstring (or (str "IHx: " doc) "IdeaHelix command")
         statement
-        (if undoable
-          `(let [return# (volatile! nil)]
-             (.. CommandProcessor getInstance
-                 (executeCommand
-                   ~project
-                   (fn []
-                     (let [start# (StartMarkAction/start ~editor ~project ~docstring)]
-                       (vreset! return# (do ~@bodies))
-                       (FinishMarkAction/finish ~project ~editor start#)))
-                   ~docstring
-                   nil))
-             @return#)
-          `(do ~@bodies))]
+        (cond-> `(do ~@bodies)
+          (extras :undoable) ((fn [s]
+                                `(let [return# (volatile! nil)]
+                                   (.. CommandProcessor getInstance
+                                       (executeCommand
+                                         ~project
+                                         (fn []
+                                           (let [start# (StartMarkAction/start ~editor ~project ~docstring)]
+                                             (vreset! return# ~s)
+                                             (FinishMarkAction/finish ~project ~editor start#)))
+                                         ~docstring
+                                         nil))
+                                   @return#)))
+          (extras :write) ((fn [s]
+                             `(let [return# (volatile! nil)]
+                                (WriteCommandAction/runWriteCommandAction
+                                  ~project
+                                  (fn [] (vreset! return# ~s)))
+                                @return#)))
+          (not (extras :keep-prefix)) ((fn [s]
+                                         `(let [return# ~s]
+                                            (dissoc (if (map? return#) return# ~state) :prefix)))))]
     `(fn [^Project ~project ~state ^EditorImpl ~editor ^KeyEvent ~event]
        ~statement)))
 
@@ -200,7 +202,7 @@
   [mappings]
   (reduce
     (fn [acc m]
-      (let [bodies (process-bodies (:bodies m) (:undoable m) (:doc m))
+      (let [bodies (process-bodies (:bodies m) (into #{} (map first) (:extras m)) (:doc m))
             match-paths (process-matcher (:matcher m))]
         (reduce (fn [a p] (assoc-in a p bodies)) acc match-paths)))
 
