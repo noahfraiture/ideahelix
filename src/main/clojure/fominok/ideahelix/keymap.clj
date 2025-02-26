@@ -5,7 +5,8 @@
 (ns fominok.ideahelix.keymap
   "Keymap definition utilities."
   (:require
-    [clojure.spec.alpha :as s])
+    [clojure.spec.alpha :as s]
+    [fominok.ideahelix.editor.movement :refer [scroll-to-primary-caret]])
   (:import
     (com.intellij.openapi.command
       CommandProcessor
@@ -78,7 +79,8 @@
          :doc (s/? string?)
          :extras (s/* (s/or :undoable (partial = :undoable)
                             :keep-prefix (partial = :keep-prefix)
-                            :write (partial = :write)))
+                            :write (partial = :write)
+                            :scroll (partial = :scroll)))
          :bodies (s/+ ::body)))
 
 
@@ -174,6 +176,10 @@
         docstring (or (str "IHx: " doc) "IdeaHelix command")
         statement
         (cond-> `(do ~@bodies)
+          (extras :scroll) ((fn [s]
+                              `(let [return# ~s]
+                                 (scroll-to-primary-caret ~editor)
+                                 return#)))
           (extras :undoable) ((fn [s]
                                 `(let [return# (volatile! nil)]
                                    (.. CommandProcessor getInstance
