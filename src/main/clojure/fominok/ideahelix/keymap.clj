@@ -51,6 +51,7 @@
   (s/or :char (partial = 'char) ; typed character
         :editor (partial = 'editor) ; editor in focus
         :state (partial = 'state) ; ideahelix->project->editor state
+        :project-state (partial = 'project-state) ; ideahelix->project state
         :document (partial = 'document) ; document instance running in the editor
         :caret (partial = 'caret) ; one caret, makes body applied to each one equally
         :project (partial = 'project))) ; wrap into "critical section" required on modifications)) ;; wraps body into a single undoable action
@@ -139,13 +140,15 @@
   "Taking a dependencies vector and a statement, this function wraps the statement
   with requested dependencies with symbols linked.
   For `caret` dependency the body will be executed for each caret."
-  [project state editor event {:keys [deps statement]}]
+  [project project-state state editor event {:keys [deps statement]}]
   (let [deps-bindings-split (group-by #(#{:caret} (first %)) deps)
+        uses-editor-state (some #(#{:state} (first %)) deps)
         deps-bindings-top
         (into [] (mapcat
                    (fn [[kw sym]]
                      [sym (case kw
                             :state state
+                            :project-state project-state
                             :project project
                             :document `(.getDocument ~editor)
                             :char `(.getKeyChar ~event)
@@ -161,7 +164,10 @@
                   caret-model#
                   (fn [~caret-sym] ~s))))))]
     `(let ~deps-bindings-top
-       ~gen-statement)))
+       (let [result# ~gen-statement]
+         (if (and (map? result#) ~uses-editor-state)
+           (assoc ~project-state ~editor result#)
+           result#)))))
 
 
 (defn- process-bodies
@@ -169,10 +175,11 @@
   injected for each."
   [bodies extras doc]
   (let [project (gensym "project")
+        project-state (gensym "project-state")
         state (gensym "state")
         editor (gensym "editor")
         event (gensym "event")
-        bodies (map (partial process-body project state editor event) bodies)
+        bodies (map (partial process-body project project-state state editor event) bodies)
         docstring (or (str "IHx: " doc) "IdeaHelix command")
         statement
         (cond-> `(do ~@bodies)
@@ -200,8 +207,8 @@
                                 @return#)))
           (not (extras :keep-prefix)) ((fn [s]
                                          `(let [return# ~s]
-                                            (dissoc (if (map? return#) return# ~state) :prefix)))))]
-    `(fn [^Project ~project ~state ^EditorImpl ~editor ^KeyEvent ~event]
+                                            (assoc-in (if (map? return#) return# ~project-state) [~editor :prefix] nil)))))]
+    `(fn [^Project ~project ~project-state ~state ^EditorImpl ~editor ^KeyEvent ~event]
        ~statement)))
 
 
@@ -235,7 +242,7 @@
         (as-> (s/conform ::defkeymap mappings) $
               (reduce flatten-modes {} $)
               (update-vals $ process-mappings))]
-    `(defn ~ident [project# state# ^EditorImpl editor# ^KeyEvent event#]
+    `(defn ~ident [project# project-state# state# ^EditorImpl editor# ^KeyEvent event#]
        (let [modifier# (or (when (.isControlDown event#) :ctrl)
                            (when (.isAltDown event#) :alt)
                            (when (.isShiftDown event#) :shift))
@@ -254,4 +261,4 @@
                  (find-matcher# cur-mode-matchers#)
                  (get-in ~rules [mode# :any]))]
          (if-let [handler# handler-opt#]
-           (handler# project# state# editor# event#))))))
+           (handler# project# project-state# state# editor# event#))))))

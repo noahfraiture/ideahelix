@@ -7,6 +7,7 @@
     [fominok.ideahelix.editor.action :refer [actions]]
     [fominok.ideahelix.editor.modification :refer :all]
     [fominok.ideahelix.editor.movement :refer :all]
+    [fominok.ideahelix.editor.registers :refer :all]
     [fominok.ideahelix.editor.selection :refer :all]
     [fominok.ideahelix.editor.ui :as ui]
     [fominok.ideahelix.editor.util :refer [for-each-caret]]
@@ -57,6 +58,11 @@
    ((:shift \U)
     "Redo"
     [editor] (actions editor IdeActions/ACTION_REDO))
+   (\y
+     "Yank"
+     [project-state editor document]
+     (let [registers (copy-to-register (:registers project-state) editor document)]
+       (assoc project-state :registers registers)))
    (\o
      "New line below" :write
      [editor document caret] (do (insert-new-line-below editor document caret)
@@ -138,6 +144,10 @@
   (:normal
     (\g "Goto mode" :keep-prefix [state] (assoc state :mode :goto))
     (\v "Selection mode" [state] (assoc state :mode :select))
+    (\p
+      "Paste" :undoable :write
+      [project-state editor document]
+      (paste-register (:registers project-state) editor document :select true))
     (\w
       "Select word forward" :undoable :scroll
       [state editor caret]
@@ -173,6 +183,10 @@
       [state] (assoc state :mode :select-goto))
     (\v
       "Back to normal mode" [state] (assoc state :mode :normal))
+    (\p
+      "Paste" :undoable :write
+      [project-state editor document]
+      (paste-register (:registers project-state) editor document))
     (\w
       "Select word forward extending" :undoable :scroll
       [state document editor caret]
@@ -268,8 +282,9 @@
 
 (defn handle-editor-event
   [project ^EditorImpl editor ^KeyEvent event]
-  (let [editor-state (or (get-in @state [project editor]) {:mode :normal})
-        result (editor-handler project editor-state editor event)]
+  (let [project-state (or (get @state project) {project {editor {:mode :normal}}})
+        editor-state (get project-state editor)
+        result (editor-handler project project-state editor-state editor event)]
     (when-not (:caret-listener editor-state)
       (let [listener (caret-listener editor)]
         (.. editor getCaretModel (addCaretListener listener))
@@ -279,8 +294,8 @@
 
       (map? result) (do
                       (.consume event)
-                      (vswap! state assoc-in [project editor] result)
-                      (ui/update-mode-panel! project result)
+                      (vswap! state assoc project result)
+                      (ui/update-mode-panel! project (get-in @state [project editor]))
                       true)
       :default (do
                  (.consume event)
