@@ -53,6 +53,19 @@
   ((:or :normal :select)
    (\u "Undo"
        [editor] (actions editor IdeActions/ACTION_UNDO))
+   ((:shift \U) "Redo"
+                [editor] (actions editor IdeActions/ACTION_REDO))
+   (\o "New line below" :write
+       [editor document caret] (do (insert-new-line-below editor document caret)
+                                   (into-insert-mode-prepend caret))
+       [project editor state]
+       (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
+   ((:shift \O) "New line above" :write
+                [document caret] (do (insert-new-line-above document caret)
+                                     (into-insert-mode-prepend caret))
+                [project editor state]
+                (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
+
    ((:shift \%)
     "Select whole buffer"
     [editor document] (select-buffer editor document))

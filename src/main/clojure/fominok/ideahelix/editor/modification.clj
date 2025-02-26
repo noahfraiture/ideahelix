@@ -95,3 +95,23 @@
       (if (or (and (= offset selection-start) (= selection-length 1)) reversed)
         (.setSelection caret (.getOffset caret) (binc document selection-end))
         (.setSelection caret selection-start (.getOffset caret))))))
+
+
+(defn insert-new-line-below
+  [editor document caret]
+  (let [column (.. editor (offsetToLogicalPosition (.getSelectionEnd caret)) column)
+        end-pos (if (zero? column) (bdec (.getSelectionEnd caret)) (.getSelectionEnd caret))
+        line (.getLineNumber document end-pos)
+        pos (.getLineEndOffset document line)]
+    (.insertString document pos "\n")
+    (.moveToOffset caret (binc document pos))
+    (ensure-selection document caret)))
+
+
+(defn insert-new-line-above
+  [document caret]
+  (let [line (.getLineNumber document (.getSelectionStart caret))
+        pos (.getLineStartOffset document line)]
+    (.insertString document pos "\n")
+    (.moveToOffset caret pos)
+    (ensure-selection document caret)))
