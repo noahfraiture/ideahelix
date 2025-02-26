@@ -53,145 +53,182 @@
   ((:or :normal :select)
    (\u "Undo"
        [editor] (actions editor IdeActions/ACTION_UNDO))
-   ((:shift \%) [editor document] (select-buffer editor document))
-   (\s [project editor document] (select-in-selections project editor document))
-   (Character/isDigit "Add prefix arg" :keep-prefix [char state] (update state :prefix (fnil conj []) char))
-   (\d "Delete selections" :undoable :write
-       [document caret] (delete-selection-contents document caret))
-   (\c "Replace selections" :write
-       [state project editor document]
-       (let [start (start-undo project editor)]
-         (for-each-caret editor #(do (delete-selection-contents document %)
-                                     (into-insert-mode-prepend %)))
-         (assoc state :mode :insert :prefix nil :mark-action start)))
-   (\a "Append to selections"
-       [caret] (into-insert-mode-append caret)
-       [project editor state]
-       (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
-   (\i "Prepend to selections"
-       [caret] (into-insert-mode-prepend caret)
-       [project editor state]
-       (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
-   ((:or (:alt \;) (:alt \u2026)) "Flip selection" :undoable
-                                  [caret] (flip-selection caret))
-   ((:or (:alt \:) (:alt \u00DA)) "Make selections forward" :undoable
-                                  [caret] (ensure-selection-forward caret))
-   (\; "Shrink selections to 1 char" :undoable
-       [document caret] (shrink-selection document caret))
-   (\, "Drop all selections but primary" :undoable
-       [editor] (keep-primary-selection editor))
-   (\x "Select whole lines extending" :undoable
-       [state document caret]
-       (dotimes [_ (get-prefix state)] (select-lines document caret :extend true)))
-   (\X "Select whole lines" :undoable
-       [document caret] (select-lines document caret :extend false))
-   (\C "Add selections below" :undoable
-       [state editor caret]
-       (add-selection-below editor caret)))
+   ((:shift \%)
+    "Select whole buffer"
+    [editor document] (select-buffer editor document))
+   (\s
+     "Select in selections"
+     [project editor document] (select-in-selections project editor document))
+   (Character/isDigit
+     "Add prefix arg" :keep-prefix
+     [char state] (update state :prefix (fnil conj []) char))
+   (\d
+     "Delete selections" :undoable :write
+     [document caret] (delete-selection-contents document caret))
+   (\c
+     "Replace selections" :write
+     [state project editor document]
+     (let [start (start-undo project editor)]
+       (for-each-caret editor #(do (delete-selection-contents document %)
+                                   (into-insert-mode-prepend %)))
+       (assoc state :mode :insert :prefix nil :mark-action start)))
+   (\a
+     "Append to selections"
+     [caret] (into-insert-mode-append caret)
+     [project editor state]
+     (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
+   ((:shift \A)
+    "Append to line"
+    [document caret] (do (move-caret-line-end document caret)
+                         (into-insert-mode-append caret))
+    [project editor state]
+    (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
+   (\i
+     "Prepend to selections"
+     [caret] (into-insert-mode-prepend caret)
+     [project editor state]
+     (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
+   ((:shift \I)
+    "Prepend to lines"
+    [document caret] (do (move-caret-line-start document caret)
+                         (into-insert-mode-prepend caret))
+    [project editor state]
+    (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
+   ((:or (:alt \;) (:alt \u2026))
+    "Flip selection" :undoable
+    [caret] (flip-selection caret))
+   ((:or (:alt \:) (:alt \u00DA))
+    "Make selections forward" :undoable
+    [caret] (ensure-selection-forward caret))
+   (\;
+     "Shrink selections to 1 char" :undoable
+     [document caret] (shrink-selection document caret))
+   (\,
+     "Drop all selections but primary" :undoable
+     [editor] (keep-primary-selection editor))
+   (\x
+     "Select whole lines extending" :undoable
+     [state document caret]
+     (dotimes [_ (min 10000 (get-prefix state))] (select-lines document caret :extend true)))
+   ((:shift \X)
+    "Select whole lines" :undoable
+    [document caret] (select-lines document caret :extend false))
+   ((:shift \C)
+    "Add selections below" :undoable
+    [state editor caret]
+    (add-selection-below editor caret)))
 
   (:normal
     (\g "Goto mode" :keep-prefix [state] (assoc state :mode :goto))
     (\v "Selection mode" [state] (assoc state :mode :select))
-    (\w "Select word forward" :undoable
-        [state editor caret]
-        (dotimes [_ (get-prefix state)] (move-caret-word-forward editor caret)))
-    (\b "Select word backward" :undoable
-        [state editor caret]
-        (dotimes [_ (get-prefix state)] (move-caret-word-backward editor caret)))
+    (\w
+      "Select word forward" :undoable
+      [state editor caret]
+      (dotimes [_ (min 10000 (get-prefix state))] (move-caret-word-forward editor caret)))
+    (\b
+      "Select word backward" :undoable
+      [state editor caret]
+      (dotimes [_ (min 10000 (get-prefix state))] (move-caret-word-backward editor caret)))
     ((:or \j KeyEvent/VK_DOWN)
-     "Move carets down"
-     :undoable
+     "Move carets down" :undoable
      [state document caret]
-     (dotimes [_ (get-prefix state)] (move-caret-down document caret))
+     (dotimes [_ (min 10000 (get-prefix state))] (move-caret-down document caret))
      [editor] (scroll-to-primary-caret editor))
     ((:or \k KeyEvent/VK_UP)
-     "Move carets up"
-     :undoable
+     "Move carets up" :undoable
      [state document caret]
-     (dotimes [_ (get-prefix state)] (move-caret-up document caret))
+     (dotimes [_ (min 10000 (get-prefix state))] (move-caret-up document caret))
      [editor] (scroll-to-primary-caret editor))
     ((:or \h KeyEvent/VK_LEFT)
-     "Move carets left"
-     :undoable
+     "Move carets left" :undoable
      [state document caret]
-     (dotimes [_ (get-prefix state)] (move-caret-backward document caret))
+     (dotimes [_ (min 10000 (get-prefix state))] (move-caret-backward document caret))
      [editor] (scroll-to-primary-caret editor))
     ((:or \l KeyEvent/VK_RIGHT)
-     "Move carets right"
-     :undoable
+     "Move carets right" :undoable
      [state document caret]
-     (dotimes [_ (get-prefix state)] (move-caret-forward document caret))
+     (dotimes [_ (min 10000 (get-prefix state))] (move-caret-forward document caret))
      [editor] (scroll-to-primary-caret editor))
-    ((:shift \G) "Move to line number" :undoable
-                 [state editor document] (move-caret-line-n editor document (get-prefix state))
-                 [state] (assoc state :mode :normal)))
+    ((:shift \G)
+     "Move to line number" :undoable
+     [state editor document] (move-caret-line-n editor document (get-prefix state))
+     [state] (assoc state :mode :normal)))
 
   (:select
-    (\g "Goto mode extending" :undoable :keep-prefix
-        [state] (assoc state :mode :select-goto))
-    (\v "Back to normal mode" [state] (assoc state :mode :normal))
-    (\w "Select word forward extending" :undoable
-        [state document editor caret]
-        (dotimes [_ (get-prefix state)] (extending document caret (partial move-caret-word-forward editor))))
-    (\b "Select word backward extending" :undoable
-        [state document editor caret]
-        (dotimes [_ (get-prefix state)] (extending document caret (partial move-caret-word-backward editor))))
+    (\g
+      "Goto mode extending" :undoable :keep-prefix
+      [state] (assoc state :mode :select-goto))
+    (\v
+      "Back to normal mode" [state] (assoc state :mode :normal))
+    (\w
+      "Select word forward extending" :undoable
+      [state document editor caret]
+      (dotimes [_ (min 10000 (get-prefix state))] (extending document caret (partial move-caret-word-forward editor))))
+    (\b
+      "Select word backward extending" :undoable
+      [state document editor caret]
+      (dotimes [_ (min 10000 (get-prefix state))] (extending document caret (partial move-caret-word-backward editor))))
     ((:or \j KeyEvent/VK_DOWN)
-     "Move carets down extending"
-     :undoable
+     "Move carets down extending" :undoable
      [state document caret]
-     (dotimes [_ (get-prefix state)] (extending document caret (partial move-caret-down document)))
+     (dotimes [_ (min 10000 (get-prefix state))] (extending document caret (partial move-caret-down document)))
      [editor] (scroll-to-primary-caret editor))
     ((:or \k KeyEvent/VK_UP)
-     "Move carets up extending"
-     :undoable
+     "Move carets up extending" :undoable
      [state document caret]
-     (dotimes [_ (get-prefix state)] (extending document caret (partial move-caret-up document)))
+     (dotimes [_ (min 10000 (get-prefix state))] (extending document caret (partial move-caret-up document)))
      [editor] (scroll-to-primary-caret editor))
     ((:or \h KeyEvent/VK_LEFT)
-     "Move carets left extending"
-     :undoable
+     "Move carets left extending" :undoable
      [state document caret]
-     (dotimes [_ (get-prefix state)] (extending document caret (partial move-caret-backward document)))
+     (dotimes [_ (min 10000 (get-prefix state))] (extending document caret (partial move-caret-backward document)))
      [editor] (scroll-to-primary-caret editor))
     ((:or \l KeyEvent/VK_RIGHT)
-     "Move carets right extending"
-     :undoable
+     "Move carets right extending" :undoable
      [state document caret]
-     (dotimes [_ (get-prefix state)] (extending document caret (partial move-caret-forward document)))
+     (dotimes [_ (min 10000 (get-prefix state))] (extending document caret (partial move-caret-forward document)))
      [editor] (scroll-to-primary-caret editor))
-    ((:shift \G) "Move to line number" :undoable
-                 [state editor document]
-                 (let [caret (.. editor getCaretModel getPrimaryCaret)]
-                   (extending document caret (fn [_] (move-caret-line-n editor document (get-prefix state))))
-                   (assoc state :mode :select))))
+    ((:shift \G)
+     "Move to line number" :undoable
+     [state editor document]
+     (let [caret (.. editor getCaretModel getPrimaryCaret)]
+       (extending document caret (fn [_] (move-caret-line-n editor document (get-prefix state))))
+       (assoc state :mode :select))))
 
   (:goto
-    (Character/isDigit "Add prefix arg" :keep-prefix [char state] (update state :prefix conj char))
-    (\h "Move carets to line start" :undoable
-        [document caret] (move-caret-line-start document caret)
-        [state] (assoc state :mode :normal))
-    (\l "Move carets to line end" :undoable
-        [document caret] (move-caret-line-end document caret)
-        [state] (assoc state :mode :normal))
-    (\g "Move to line number" :undoable
-        [state editor document] (move-caret-line-n editor document (get-prefix state))
-        [state] (assoc state :mode :normal))
+    (Character/isDigit
+      "Add prefix arg" :keep-prefix [char state] (update state :prefix conj char))
+    (\h
+      "Move carets to line start" :undoable
+      [document caret] (move-caret-line-start document caret)
+      [state] (assoc state :mode :normal))
+    (\l
+      "Move carets to line end" :undoable
+      [document caret] (move-caret-line-end document caret)
+      [state] (assoc state :mode :normal))
+    (\g
+      "Move to line number" :undoable
+      [state editor document] (move-caret-line-n editor document (get-prefix state))
+      [state] (assoc state :mode :normal))
     (_ [state] (assoc state :mode :normal)))
 
   (:select-goto
-    (Character/isDigit "Add prefix arg" :keep-prefix [char state] (update state :prefix conj char))
-    (\h "Move carets to line start extending" :undoable
-        [document caret] (extending document caret (partial move-caret-line-start document))
-        [state] (assoc state :mode :select))
-    (\l "Move carets to line end extending" :undoable
-        [document caret] (extending document caret (partial move-caret-line-end document))
-        [state] (assoc state :mode :select))
-    (\g "Move to line number" :undoable
-        [state editor document]
-        (let [caret (.. editor getCaretModel getPrimaryCaret)]
-          (extending document caret (fn [_] (move-caret-line-n editor document (get-prefix state))))
-          (assoc state :mode :select)))
+    (Character/isDigit
+      "Add prefix arg" :keep-prefix [char state] (update state :prefix conj char))
+    (\h
+      "Move carets to line start extending" :undoable
+      [document caret] (extending document caret (partial move-caret-line-start document))
+      [state] (assoc state :mode :select))
+    (\l
+      "Move carets to line end extending" :undoable
+      [document caret] (extending document caret (partial move-caret-line-end document))
+      [state] (assoc state :mode :select))
+    (\g
+      "Move to line number" :undoable
+      [state editor document]
+      (let [caret (.. editor getCaretModel getPrimaryCaret)]
+        (extending document caret (fn [_] (move-caret-line-n editor document (get-prefix state))))
+        (assoc state :mode :select)))
     (_ [state] (assoc state :mode :select)))
 
   (:insert
