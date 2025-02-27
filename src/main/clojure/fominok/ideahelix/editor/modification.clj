@@ -6,7 +6,7 @@
   (:require
     [fominok.ideahelix.editor.selection :refer [ensure-selection reversed? degenerate?]]
     [fominok.ideahelix.editor.util
-     :refer [inc-within-bounds dec-within-bounds]
+     :refer [inc-within-bounds dec-within-bounds get-caret-contents]
      :rename {inc-within-bounds binc dec-within-bounds bdec}])
   (:import
     (com.intellij.openapi.command
@@ -115,3 +115,35 @@
     (.insertString document pos "\n")
     (.moveToOffset caret pos)
     (ensure-selection document caret)))
+
+
+(defn replace-selections
+  [project-state project editor document & {:keys [register] :or {register \"}}]
+  (let [start (start-undo project editor)
+        carets (.. editor getCaretModel getAllCarets)
+        register-contents
+        (doall (for [caret carets
+                     :let [text (get-caret-contents document caret)]]
+                 (do
+                   (delete-selection-contents document caret)
+                   (into-insert-mode-prepend caret)
+                   text)))]
+    (-> project-state
+        (assoc-in [:registers register] register-contents)
+        (assoc-in [editor :mode] :insert)
+        (assoc-in [editor :prefix] nil)
+        (assoc-in [editor :mark-action] start))))
+
+
+(defn delete-selections
+  [project-state editor document & {:keys [register] :or {register \"}}]
+  (let [carets (.. editor getCaretModel getAllCarets)
+        register-contents
+        (doall (for [caret carets
+                     :let [text (get-caret-contents document caret)]]
+                 (do
+                   (delete-selection-contents document caret)
+                   text)))]
+    (-> project-state
+        (assoc-in [:registers register] register-contents)
+        (assoc-in [editor :prefix] nil))))

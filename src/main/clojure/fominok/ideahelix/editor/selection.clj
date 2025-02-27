@@ -163,7 +163,7 @@
 (defn select-buffer
   [editor document]
   (let [caret (.. editor getCaretModel getPrimaryCaret)
-        length (bdec (.getTextLength document))]
+        length (.getTextLength document)]
     (.moveToOffset caret length)
     (.setSelection caret 0 length)))
 

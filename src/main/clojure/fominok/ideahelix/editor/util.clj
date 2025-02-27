@@ -7,7 +7,7 @@
 
 (defn inc-within-bounds
   [document n]
-  (min (dec (.getTextLength document)) (inc n)))
+  (min (max 0 (dec (.getTextLength document))) (inc n)))
 
 
 (defn dec-within-bounds
@@ -19,3 +19,8 @@
   [editor f]
   (let [model (.getCaretModel editor)]
     (.runForEachCaret model f)))
+
+
+(defn get-caret-contents
+  [document caret]
+  (.getText document (.getSelectionRange caret)))

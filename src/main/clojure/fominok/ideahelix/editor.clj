@@ -87,14 +87,12 @@
      [char state] (update state :prefix (fnil conj []) char))
    (\d
      "Delete selections" :undoable :write
-     [document caret] (delete-selection-contents document caret))
+     [project-state editor document]
+     (delete-selections project-state editor document))
    (\c
      "Replace selections" :write
-     [state project editor document]
-     (let [start (start-undo project editor)]
-       (for-each-caret editor #(do (delete-selection-contents document %)
-                                   (into-insert-mode-prepend %)))
-       (assoc state :mode :insert :prefix nil :mark-action start)))
+     [project-state project editor document]
+     (replace-selections project-state project editor document))
    (\a
      "Append to selections"
      [caret] (into-insert-mode-append caret)
