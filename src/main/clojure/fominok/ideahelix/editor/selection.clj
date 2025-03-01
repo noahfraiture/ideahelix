@@ -229,8 +229,11 @@
   [editor document]
   (let [caret (.. editor getCaretModel getPrimaryCaret)
         length (.getTextLength document)]
-    (.moveToOffset caret length)
-    (.setSelection caret 0 length)))
+    (-> (ihx-selection document caret)
+        (ihx-offset 0)
+        ihx-make-forward
+        (ihx-offset length)
+        (ihx-apply-selection! document))))
 
 
 (defn regex-matches-with-positions
