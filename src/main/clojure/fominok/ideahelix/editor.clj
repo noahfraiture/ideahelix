@@ -5,6 +5,7 @@
 (ns fominok.ideahelix.editor
   (:require
     [fominok.ideahelix.editor.action :refer [actions]]
+    [fominok.ideahelix.editor.jumplist :refer :all]
     [fominok.ideahelix.editor.modification :refer :all]
     [fominok.ideahelix.editor.registers :refer :all]
     [fominok.ideahelix.editor.selection :refer :all]
@@ -168,7 +169,19 @@
    ((:shift \C)
     "Add selections below"
     [state editor caret]
-    (add-selection-below editor caret)))
+    (add-selection-below editor caret))
+   ((:or (:ctrl \o) (:ctrl \u000f))
+    "Jump backward"
+    [project-state project editor document]
+    (jumplist-backward! project-state project editor document))
+   ((:or (:ctrl \i) (:ctrl \u0009))
+    "Jump forward"
+    [project-state project editor document]
+    (jumplist-forward! project-state project editor document))
+   ((:or (:ctrl \s) (:ctrl \u0013))
+    "Add to jumplist"
+    [project-state editor document]
+    (jumplist-add project-state editor document)))
 
   (:normal
     (\g "Goto mode" :keep-prefix [state] (assoc state :mode :goto))
@@ -222,7 +235,7 @@
          ihx-shrink-selection
          (ihx-apply-selection! document)))
     ((:shift \G)
-     "Move to line number" :scroll
+     "Move to line number" :scroll :jumplist-add
      [state editor document]
      (do (-> (ihx-move-caret-line-n editor document (get-prefix state))
              ihx-shrink-selection
@@ -280,7 +293,7 @@
          (ihx-move-forward (get-prefix state))
          (ihx-apply-selection! document)))
     ((:shift \G)
-     "Move to line number" :scroll
+     "Move to line number" :scroll :jumplist-add
      [state editor document]
      (do (-> (ihx-move-caret-line-n editor document (get-prefix state))
              (ihx-apply-selection! document))
@@ -306,18 +319,19 @@
           (ihx-apply-selection! document))
       [state] (assoc state :mode :normal))
     (\g
-      "Move to line number" :scroll
+      "Move to line number" :scroll :jumplist-add
       [state editor document]
       (do (-> (ihx-move-caret-line-n editor document (get-prefix state))
               ihx-shrink-selection
               (ihx-apply-selection! document))
           (assoc state :mode :normal)))
-    (\e "Move to file end" :scroll
-        [state editor document]
-        (do (-> (ihx-move-file-end editor document)
-                ihx-shrink-selection
-                (ihx-apply-selection! document))
-            (assoc state :mode :normal)))
+    (\e
+      "Move to file end" :scroll :jumplist-add
+      [state editor document]
+      (do (-> (ihx-move-file-end editor document)
+              ihx-shrink-selection
+              (ihx-apply-selection! document))
+          (assoc state :mode :normal)))
     (_ [state] (assoc state :mode :normal)))
 
   (:select-goto
@@ -338,16 +352,17 @@
           (ihx-apply-selection! document))
       [state] (assoc state :mode :select))
     (\g
-      "Move to line number" :scroll
+      "Move to line number" :scroll :jumplist-add
       [state editor document]
       (do (-> (ihx-move-caret-line-n editor document (get-prefix state))
               (ihx-apply-selection! document))
           (assoc state :mode :select)))
-    (\e "Move to file end" :scroll
-        [state editor document]
-        (do (-> (ihx-move-file-end editor document)
-                (ihx-apply-selection! document))
-            (assoc state :mode :select)))
+    (\e
+      "Move to file end" :scroll :jumplist-add
+      [state editor document]
+      (do (-> (ihx-move-file-end editor document)
+              (ihx-apply-selection! document))
+          (assoc state :mode :select)))
     (_ [state] (assoc state :mode :select)))
 
   (:insert
@@ -385,7 +400,6 @@
         (vswap! state assoc-in [project editor :caret-listener] listener)))
     (cond
       (= :pass result) false
-
       (map? result) (do
                       (.consume event)
                       (vswap! state assoc project result)

@@ -4,7 +4,6 @@
 
 (ns fominok.ideahelix.editor.modification
   (:require
-    [fominok.ideahelix.editor.movement :refer :all]
     [fominok.ideahelix.editor.selection :refer :all]
     [fominok.ideahelix.editor.util
      :refer [get-caret-contents]])

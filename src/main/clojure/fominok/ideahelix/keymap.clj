@@ -6,6 +6,7 @@
   "Keymap definition utilities."
   (:require
     [clojure.spec.alpha :as s]
+    [fominok.ideahelix.editor.jumplist :refer [jumplist-add]]
     [fominok.ideahelix.editor.selection :refer [scroll-to-primary-caret]])
   (:import
     (com.intellij.openapi.command
@@ -81,7 +82,8 @@
          :extras (s/* (s/or :undoable (partial = :undoable)
                             :keep-prefix (partial = :keep-prefix)
                             :write (partial = :write)
-                            :scroll (partial = :scroll)))
+                            :scroll (partial = :scroll)
+                            :jumplist-add (partial = :jumplist-add)))
          :bodies (s/+ ::body)))
 
 
@@ -136,6 +138,17 @@
     [(process-single-matcher matcher)]))
 
 
+(defn deep-merge
+  [& maps]
+  (reduce (fn [m1 m2]
+            (merge-with (fn [v1 v2]
+                          (if (and (map? v1) (map? v2))
+                            (deep-merge v1 v2)
+                            v2))
+                        m1 m2))
+          maps))
+
+
 (defn- process-body
   "Taking a dependencies vector and a statement, this function wraps the statement
   with requested dependencies with symbols linked.
@@ -166,7 +179,7 @@
     `(let ~deps-bindings-top
        (let [result# ~gen-statement]
          (if (and (map? result#) ~uses-editor-state)
-           (assoc ~project-state ~editor result#)
+           {~editor result#}
            result#)))))
 
 
@@ -182,7 +195,7 @@
         bodies (map (partial process-body project project-state state editor event) bodies)
         docstring (or (str "IHx: " doc) "IdeaHelix command")
         statement
-        (cond-> `(do ~@bodies)
+        (cond-> `(deep-merge ~@bodies)
           (extras :scroll) ((fn [s]
                               `(let [return# ~s]
                                  (scroll-to-primary-caret ~editor)
@@ -209,9 +222,15 @@
                                 @return#)))
           (not (extras :keep-prefix)) ((fn [s]
                                          `(let [return# ~s]
-                                            (assoc-in (if (map? return#) return# ~project-state) [~editor :prefix] nil)))))]
+                                            (assoc-in (if (map? return#) return# ~project-state) [~editor :prefix] nil))))
+          (extras :jumplist-add) ((fn [s]
+                                    `(let [document# (.getDocument ~editor)
+                                           jl-pre# (jumplist-add ~project-state ~editor document#)
+                                           return# ~s
+                                           jl-after# (jumplist-add jl-pre# ~editor document#)]
+                                       (merge return# (select-keys jl-after# [:jumplist]))))))]
     `(fn [^Project ~project ~project-state ~state ^EditorImpl ~editor ^KeyEvent ~event]
-       ~statement)))
+       (deep-merge ~project-state ~statement))))
 
 
 (defn- process-mappings
