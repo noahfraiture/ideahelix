@@ -34,7 +34,6 @@ class Init : ProjectActivity {
             // initFn.invoke(project)
         } finally {
             currentThread.contextClassLoader = originalClassLoader
-
         }
 
         IdeEventQueue.getInstance().addDispatcher({
@@ -45,7 +44,8 @@ class Init : ProjectActivity {
                         KeyEvent.VK_LEFT, KeyEvent.VK_RIGHT,
                         KeyEvent.VK_UP, KeyEvent.VK_DOWN,
                         KeyEvent.VK_ESCAPE, KeyEvent.VK_SHIFT,
-                        KeyEvent.VK_BACK_SPACE, KeyEvent.VK_ENTER -> true
+                        KeyEvent.VK_BACK_SPACE, KeyEvent.VK_ENTER,
+                        KeyEvent.VK_TAB -> true
                         else -> false
                     }
                     else -> false

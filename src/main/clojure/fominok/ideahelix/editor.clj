@@ -41,13 +41,11 @@
   (:any
     (KeyEvent/VK_ESCAPE
       "Back to normal mode"
-      [state document caret]
+      [state editor document]
       (when (= :insert (:mode state))
-        (-> (ihx-selection document caret :insert-mode true)
-            ihx-append-quit
-            (ihx-apply-selection! document)))
+        (restore-selections state editor document))
       [state project editor]
-      (let [new-state (assoc state :mode :normal :prefix nil)]
+      (let [new-state (assoc state :mode :normal :prefix nil :pre-selections nil :insertion-kind nil)]
         (if (= :insert (:mode state))
           (do (finish-undo project editor (:mark-action state))
               (dissoc new-state :mark-action))
@@ -68,19 +66,28 @@
    (\o
      "New line below" :write :scroll
      [editor document caret]
-     (-> (ihx-selection document caret)
-         (ihx-new-line-below editor document)
-         (ihx-apply-selection! document))
+     (do (-> (ihx-selection document caret)
+             (ihx-move-line-end editor document)
+             (ihx-apply-selection! document))
+         (.setSelection caret (.getSelectionEnd caret) (.getSelectionEnd caret)))
      [project editor state]
-     (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
+     (let [new-state
+           (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor))]
+       (actions editor IdeActions/ACTION_EDITOR_ENTER)
+       new-state))
    ((:shift \O)
     "New line above" :write :scroll
     [editor document caret]
-    (-> (ihx-selection document caret)
-        (ihx-new-line-above editor document)
-        (ihx-apply-selection! document))
+    (do (-> (ihx-selection document caret)
+            (ihx-move-relative! :lines -1)
+            (ihx-move-line-end editor document)
+            (ihx-apply-selection! document))
+        (.setSelection caret (.getSelectionEnd caret) (.getSelectionEnd caret)))
     [project editor state]
-    (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
+    (let [new-state
+          (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor))]
+      (actions editor IdeActions/ACTION_EDITOR_ENTER)
+      new-state))
    ((:shift \%)
     "Select whole buffer"
     [editor document] (select-buffer editor document))
@@ -103,10 +110,14 @@
      [document caret]
      (-> (ihx-selection document caret)
          ihx-make-forward
-         ihx-append
          (ihx-apply-selection! document))
-     [project editor state]
-     (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
+     [project editor state document]
+     (let [new-state
+           (-> state
+               (dump-drop-selections! editor document)
+               (assoc :mode :insert :insertion-kind :append :prefix nil :mark-action (start-undo project editor)))]
+       (actions editor IdeActions/ACTION_EDITOR_MOVE_CARET_RIGHT)
+       new-state))
    ((:shift \A)
     "Append to line"
     [editor document caret]
@@ -114,16 +125,20 @@
         (ihx-move-line-end editor document)
         ihx-shrink-selection
         (ihx-apply-selection! document))
-    [project editor state]
-    (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
+    [project editor state document]
+    (-> state
+        (dump-drop-selections! editor document)
+        (assoc :mode :insert :insertion-kind :prepend :prefix nil :mark-action (start-undo project editor))))
    (\i
      "Prepend to selections"
      [document caret]
      (-> (ihx-selection document caret)
          ihx-make-backward
          (ihx-apply-selection! document))
-     [project editor state]
-     (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
+     [project editor state document]
+     (-> state
+         (dump-drop-selections! editor document)
+         (assoc :mode :insert :insertion-kind :prepend :prefix nil :mark-action (start-undo project editor))))
    ((:shift \I)
     "Prepend to lines"
     [editor document caret]
@@ -131,8 +146,10 @@
         (ihx-move-line-start editor document)
         ihx-shrink-selection
         (ihx-apply-selection! document))
-    [project editor state]
-    (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor)))
+    [project editor state document]
+    (-> state
+        (dump-drop-selections! editor document)
+        (assoc :mode :insert :insertion-kind :prepend :prefix nil :mark-action (start-undo project editor))))
    ((:or (:alt \;) (:alt \u2026))
     "Flip selection" :scroll
     [document caret] (-> (ihx-selection document caret)
@@ -302,6 +319,10 @@
   (:goto
     (Character/isDigit
       "Add prefix arg" :keep-prefix [char state] (update state :prefix conj char))
+    (\d
+      "Goto declaration" :jumplist-add
+      [editor]
+      (actions editor IdeActions/ACTION_GOTO_DECLARATION))
     (\h
       "Move carets to line start" :scroll
       [editor document caret]
@@ -315,6 +336,7 @@
       [editor document caret]
       (-> (ihx-selection document caret)
           (ihx-move-line-end editor document)
+          (ihx-move-backward 1)
           ihx-shrink-selection
           (ihx-apply-selection! document))
       [state] (assoc state :mode :normal))
@@ -366,19 +388,26 @@
     (_ [state] (assoc state :mode :select)))
 
   (:insert
+    (_ [project-state] (assoc project-state :pass true))
     #_((:or (:ctrl \a) (:ctrl \u0001)) [document caret] (move-caret-line-start document caret))
     #_((:or (:ctrl \e) (:ctrl \u0005)) [document caret] (move-caret-line-end document caret))
-    (KeyEvent/VK_BACK_SPACE :write [document caret] (backspace document caret))
-    (KeyEvent/VK_ENTER :write
-                       [document caret]
-                       (-> (ihx-selection document caret :insert-mode true)
-                           (insert-newline document)
-                           (ihx-apply-selection! document)))
-    (_ :write
-       [document caret char]
-       (-> (ihx-selection document caret :insert-mode true)
-           (ihx-insert-char document char)
-           (ihx-apply-selection! document)))))
+    #_(KeyEvent/VK_BACK_SPACE :write
+                              [document caret] (backspace document caret)
+                              [project editor] (psi-commit project editor))
+    #_(KeyEvent/VK_ENTER
+                         [editor document] (enter document)
+                         [project editor] (psi-commit project editor))
+    #_(KeyEvent/VK_TAB
+        [project editor]
+        (completion project editor))
+    #_(_
+        :write
+         [document caret char]
+         (some-> (ihx-selection document caret :insert-mode true)
+             (ihx-insert-char document char)
+             (ihx-apply-selection! document))
+        [project editor]
+        (psi-commit project editor))))
 
 
 (defn- caret-listener
@@ -393,13 +422,14 @@
   [project ^EditorImpl editor ^KeyEvent event]
   (let [project-state (or (get @state project) {project {editor {:mode :normal}}})
         editor-state (get project-state editor)
-        result (editor-handler project project-state editor-state editor event)]
+        result (editor-handler project project-state editor-state editor event)
+        pass (:pass result)]
     (when-not (:caret-listener editor-state)
       (let [listener (caret-listener editor)]
         (.. editor getCaretModel (addCaretListener listener))
         (vswap! state assoc-in [project editor :caret-listener] listener)))
     (cond
-      (= :pass result) false
+      pass false
       (map? result) (do
                       (.consume event)
                       (vswap! state assoc project result)

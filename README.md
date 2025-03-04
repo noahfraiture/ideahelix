@@ -92,18 +92,20 @@ IHx: h e l|l o
 
 ### Append & Prepend Behavior
 
-When entering insertion mode via prepend or append, Helix and IdeaHelix display caret
-positions slightly differently. The examples below illustrate how the selection of `hello`
-in `hello world` appears upon entering prepend or append mode:
+In Helix, selections stay active and may expand when entering insert mode with prepend or
+append. However, due to IDEA’s limitations, IdeaHelix must temporarily turn off selections
+while typing. This makes insert mode work smoothly with IDEA’s features, like completions,
+which rely on the selection start instead of the caret position. Once insert mode ends,
+selections are restored to match how they would look in Helix.
 
 ```
 Append:
 Hx : ║h e l l o| |w o r l d
-IHx: ║h e l l o|  w o r l d
+IHx:  h e l l o|  w o r l d
 
 Prepend:
 Hx : |h|e l l o║  w o r l d
-IHx: |h e l l o║  w o r l d
+IHx: |h e l l o   w o r l d
 ```
 
 ### Exiting Insertion Mode

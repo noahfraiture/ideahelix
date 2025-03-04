@@ -8,11 +8,23 @@
     [fominok.ideahelix.editor.util
      :refer [get-caret-contents]])
   (:import
+    (com.intellij.codeInsight
+      AutoPopupController)
+    (com.intellij.codeInsight.completion
+      CodeCompletionHandlerBase
+      CompletionType)
+    (com.intellij.codeInsight.daemon
+      DaemonCodeAnalyzer)
+    (com.intellij.codeInsight.lookup
+      Lookup
+      LookupManager)
     (com.intellij.openapi.command
       CommandProcessor)
     (com.intellij.openapi.command.impl
       FinishMarkAction
-      StartMarkAction)))
+      StartMarkAction)
+    (com.intellij.psi
+      PsiDocumentManager)))
 
 
 (defn finish-undo
@@ -28,7 +40,7 @@
 (defn backspace
   [document caret]
   (let [offset (.getOffset caret)]
-    (.deleteString document (max 0 offset) offset)))
+    (.deleteString document (max 0 (dec offset)) offset)))
 
 
 (defn delete-selection-contents
@@ -105,10 +117,13 @@
                    (-> (ihx-selection document caret)
                        (delete-selection-contents document)
                        (ihx-apply-selection! document))
-                   text)))]
+                   text)))
+        editor-state (dump-drop-selections! (get project-state editor) editor document)]
     (-> project-state
         (assoc-in [:registers register] register-contents)
+        (assoc editor editor-state)
         (assoc-in [editor :mode] :insert)
+        (assoc-in [editor :insertion-kind] :prepend)
         (assoc-in [editor :prefix] nil)
         (assoc-in [editor :mark-action] start))))
 
@@ -127,3 +142,23 @@
     (-> project-state
         (assoc-in [:registers register] register-contents)
         (assoc-in [editor :prefix] nil))))
+
+
+(defn enter
+  [caret document]
+  (-> (ihx-selection document caret :insert-mode true)
+      (insert-newline document)
+      (ihx-apply-selection! document)))
+
+
+(defn completion
+  [project editor]
+  (.invokeCompletion (CodeCompletionHandlerBase. CompletionType/BASIC) project editor))
+
+
+(def psi-commit
+  (fn [project editor]
+    (.. PsiDocumentManager (getInstance project) commitAllDocuments)
+    #_(when-let [lookup (LookupManager/getActiveLookup editor)]
+        (.setStartOffset lookup (.. editor getCaretModel getPrimaryCaret getOffset)))
+    #_(.. AutoPopupController (getInstance project) (scheduleAutoPopup editor))))

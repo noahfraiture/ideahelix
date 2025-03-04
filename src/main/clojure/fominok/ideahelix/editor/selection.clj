@@ -335,3 +335,38 @@
     (.removeSecondaryCarets model)
     (-> (ihx-selection document caret)
         (ihx-offset text-length))))
+
+
+(defn dump-drop-selections!
+  [state editor document]
+  (let [carets (.. editor getCaretModel getAllCarets)
+        ihx-selections (doall (map (partial ihx-selection document) carets))]
+    (doseq [caret carets
+            :let [offset (.getOffset caret)]]
+      (.setSelection caret offset offset))
+    (assoc state :pre-selections ihx-selections)))
+
+
+(defn restore-selections
+  [{:keys [pre-selections insertion-kind]} editor document]
+  (let [carets (.. editor getCaretModel getAllCarets)
+        saved-carets (into #{} (map :caret pre-selections))
+        free-carets (filter (complement saved-carets) carets)]
+    (doseq [{:keys [offset caret anchor] :as selection} pre-selections
+            :let [new-offset (.getOffset caret)
+                  delta (- new-offset offset)]]
+      (case insertion-kind
+        :append (if (>= new-offset anchor)
+                  (-> selection
+                      (update :offset + (dec delta))
+                      ihx-append-quit
+                      (ihx-apply-selection! document))
+                  (-> (ihx-selection document caret)
+                      (ihx-move-backward 1)
+                      (ihx-apply-selection! document)))
+        (-> selection
+            (ihx-nudge delta)
+            (ihx-apply-selection! document))))
+    (doseq [caret free-carets]
+      (-> (ihx-selection document caret)
+          (ihx-apply-selection! document)))))
