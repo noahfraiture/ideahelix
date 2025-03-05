@@ -420,14 +420,10 @@
 
 (defn handle-editor-event
   [project ^EditorImpl editor ^KeyEvent event]
-  (let [project-state (or (get @state project) {project {editor {:mode :normal}}})
-        editor-state (get project-state editor)
+  (let [project-state (get @state project)
+        editor-state (or (get project-state editor) {:mode :normal})
         result (editor-handler project project-state editor-state editor event)
         pass (:pass result)]
-    (when-not (:caret-listener editor-state)
-      (let [listener (caret-listener editor)]
-        (.. editor getCaretModel (addCaretListener listener))
-        (vswap! state assoc-in [project editor :caret-listener] listener)))
     (cond
       pass false
       (map? result) (do

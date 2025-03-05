@@ -5,9 +5,15 @@
 (ns fominok.ideahelix.core
   (:require
     [cider.nrepl :refer (cider-nrepl-handler)]
-    [fominok.ideahelix.editor :refer [handle-editor-event]]
+    [fominok.ideahelix.editor :refer [handle-editor-event state]]
+    [fominok.ideahelix.editor.selection :refer :all]
+    [fominok.ideahelix.editor.ui :as ui]
     [nrepl.server :refer [start-server]])
   (:import
+    (com.intellij.openapi.editor
+      Editor)
+    (com.intellij.openapi.editor.event
+      CaretListener)
     (com.intellij.openapi.editor.impl
       EditorComponentImpl)))
 
@@ -22,6 +28,32 @@
     (handle-editor-event project (.getEditor ^EditorComponentImpl focus-owner) event)
 
     false))
+
+
+(defn- caret-listener
+  [editor]
+  (reify CaretListener
+    (caretPositionChanged
+      [_ event]
+      (ui/highlight-primary-caret editor event))))
+
+
+(defn focus-editor
+  [project ^Editor editor]
+  (let [project-state (get @state project)
+        editor-state (or (get project-state editor) {:mode :normal})
+        document (.getDocument editor)]
+    (when-not (:caret-listener editor-state)
+      (let [listener (caret-listener editor)
+            _ (.. editor getCaretModel (addCaretListener listener))
+            updated-state (assoc editor-state :caret-listener listener)]
+        (vswap! state assoc-in [project editor] updated-state)))
+    (ui/update-mode-panel! project editor-state)
+    (when (= (:state editor-state) :normal)
+      (.. editor getCaretModel
+          (runForEachCaret (fn [caret]
+                             (-> (ihx-selection document caret)
+                                 (ihx-apply-selection! document))))))))
 
 
 (defonce -server (start-server :port 7888 :handler cider-nrepl-handler))
