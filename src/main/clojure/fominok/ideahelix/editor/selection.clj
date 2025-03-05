@@ -99,14 +99,15 @@
 ;; This modifies the caret
 (defn ihx-apply-selection!
   [{:keys [anchor offset caret in-append]} document]
-  (let [[start end] (sort [anchor offset])
-        text-length (.getTextLength document)
-        adj #(max 0 (min % (dec text-length)))
-        adjusted-offset (adj (cond-> offset
-                               in-append inc))
-        adjusted-start (adj start)]
-    (.moveToOffset caret adjusted-offset)
-    (.setSelection caret adjusted-start (max 0 (min (inc end) text-length)))))
+  (when (and caret (.isValid caret))
+    (let [[start end] (sort [anchor offset])
+          text-length (.getTextLength document)
+          adj #(max 0 (min % (dec text-length)))
+          adjusted-offset (adj (cond-> offset
+                                 in-append inc))
+          adjusted-start (adj start)]
+      (.moveToOffset caret adjusted-offset)
+      (.setSelection caret adjusted-start (max 0 (min (inc end) text-length))))))
 
 
 (defn ihx-apply-selection-preserving
@@ -351,21 +352,25 @@
   [{:keys [pre-selections insertion-kind]} editor document]
   (let [carets (.. editor getCaretModel getAllCarets)
         saved-carets (into #{} (map :caret pre-selections))
-        free-carets (filter (complement saved-carets) carets)]
-    (doseq [{:keys [offset caret anchor] :as selection} pre-selections
+        free-carets (filter (complement saved-carets) carets)
+        delta (- (.getOffset (first carets)) (:offset (first pre-selections))
+                 (if (= insertion-kind :append) 1 0))
+        increasing-deltas (map (partial * delta) (range))]
+    (doseq [[{:keys [caret anchor] :as selection} delta-anchor]
+            (map vector pre-selections increasing-deltas)
             :let [new-offset (.getOffset caret)
-                  delta (- new-offset offset)]]
+                  new-anchor (+ anchor delta-anchor)]]
       (case insertion-kind
-        :append (if (>= new-offset anchor)
+        :append (if (>= new-offset new-anchor)
                   (-> selection
-                      (update :offset + (dec delta))
-                      ihx-append-quit
+                      (assoc :anchor new-anchor)
+                      (assoc :offset (dec new-offset))
                       (ihx-apply-selection! document))
                   (-> (ihx-selection document caret)
                       (ihx-move-backward 1)
                       (ihx-apply-selection! document)))
         (-> selection
-            (ihx-nudge delta)
+            (ihx-nudge (+ delta delta-anchor))
             (ihx-apply-selection! document))))
     (doseq [caret free-carets]
       (-> (ihx-selection document caret)
