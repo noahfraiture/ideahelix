@@ -13,7 +13,11 @@
     [fominok.ideahelix.editor.util :refer [deep-merge]]
     [fominok.ideahelix.keymap :refer [defkeymap]])
   (:import
+    (com.intellij.ide.actions.searcheverywhere
+      SearchEverywhereManager)
     (com.intellij.openapi.actionSystem
+      ActionPlaces
+      AnActionEvent
       IdeActions)
     (com.intellij.openapi.editor.impl
       EditorImpl)
@@ -70,6 +74,9 @@
         (assoc state :mode :normal :prefix nil :pre-selections nil :insertion-kind nil))))
 
   ((:or :normal :select)
+   (\space
+     "Space menu"
+     [state] (assoc state :mode :space))
    (\u
      "Undo"
      [editor] (actions editor IdeActions/ACTION_UNDO)
@@ -399,6 +406,18 @@
           (assoc state :mode :select)))
     (_ [state] (assoc state :mode :select)))
 
+  (:space
+    (\f
+      "File finder"
+      [state project editor]
+      (let [manager (.. SearchEverywhereManager (getInstance project))
+            data-context (.getDataContext editor)
+            action-event (AnActionEvent/createFromDataContext
+                           ActionPlaces/KEYBOARD_SHORTCUT nil data-context)]
+        (.show manager "FileSearchEverywhereContributor" nil action-event)
+        (assoc state :mode :normal))))
+
+
   (:insert
     (_ [project-state] (assoc project-state :pass true))))
 
@@ -425,7 +444,8 @@
       (map? result) (do
                       (.consume event)
                       (swap! state assoc project (deep-merge project-state result))
-                      (ui/update-mode-panel! project (get-in @state [project editor]))
+                      (ui/update-mode-panel! project (or (get-in @state [project editor])
+                                                         {:mode :normal}))
                       true)
       :default (do
                  (.consume event)

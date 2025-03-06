@@ -13,11 +13,8 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.ex.EditorEventMulticasterEx
 import com.intellij.openapi.editor.ex.FocusChangeListener
-import com.intellij.openapi.editor.impl.EditorImpl
-import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
-import com.intellij.util.ui.UIUtil
 import java.awt.KeyboardFocusManager
 import java.awt.event.KeyEvent
 
@@ -25,8 +22,6 @@ class Init : ProjectActivity {
     override suspend fun execute(project: Project) {
         val pushEvent: IFn
         val focusEditor: IFn
-
-        val e: EditorImpl
 
         // Per https://plugins.jetbrains.com/docs/intellij/plugin-class-loaders.html#using-serviceloader:
         val currentThread = Thread.currentThread()
