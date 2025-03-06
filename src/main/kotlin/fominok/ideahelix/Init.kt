@@ -11,9 +11,9 @@ import clojure.lang.IFn
 import com.intellij.ide.IdeEventQueue
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
-import com.intellij.openapi.editor.impl.EditorImpl
 import com.intellij.openapi.editor.ex.EditorEventMulticasterEx
 import com.intellij.openapi.editor.ex.FocusChangeListener
+import com.intellij.openapi.editor.impl.EditorImpl
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
 import java.awt.KeyboardFocusManager
@@ -52,27 +52,8 @@ class Init : ProjectActivity {
 
         IdeEventQueue.getInstance().addDispatcher({
             if (it is KeyEvent) {
-                val isRelevantEvent = when (it.id) {
-                    KeyEvent.KEY_TYPED -> true
-                    KeyEvent.KEY_PRESSED -> when (it.keyCode) {
-                        KeyEvent.VK_LEFT, KeyEvent.VK_RIGHT,
-                        KeyEvent.VK_UP, KeyEvent.VK_DOWN,
-                        KeyEvent.VK_ESCAPE, KeyEvent.VK_SHIFT,
-                        KeyEvent.VK_BACK_SPACE, KeyEvent.VK_ENTER,
-                        KeyEvent.VK_TAB -> true
-
-                        else -> false
-                    }
-
-                    else -> false
-                }
-
-                if (isRelevantEvent) {
-                    val focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner
-                    pushEvent.invoke(project, focusOwner, it) as Boolean
-                } else {
-                    false
-                }
+                val focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().focusOwner
+                pushEvent.invoke(project, focusOwner, it) as Boolean
             } else {
                 false
             }

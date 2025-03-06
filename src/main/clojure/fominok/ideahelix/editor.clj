@@ -10,21 +10,18 @@
     [fominok.ideahelix.editor.registers :refer :all]
     [fominok.ideahelix.editor.selection :refer :all]
     [fominok.ideahelix.editor.ui :as ui]
+    [fominok.ideahelix.editor.util :refer [deep-merge]]
     [fominok.ideahelix.keymap :refer [defkeymap]])
   (:import
     (com.intellij.openapi.actionSystem
       IdeActions)
-    (com.intellij.openapi.editor.event
-      CaretListener)
     (com.intellij.openapi.editor.impl
       EditorImpl)
     (java.awt.event
       KeyEvent)))
 
 
-;; We're allowed to use "thread-unsafe" mutable state since events are coming within 1 thread
-;; which is blocked until it is decided what to do with an event.
-(defonce state (volatile! {}))
+(defonce state (atom {}))
 
 
 (def get-prefix
@@ -35,29 +32,54 @@
         1))))
 
 
+(defn- quit-insert-mode
+  [project editor-state editor document]
+  (restore-selections editor-state editor document)
+  (finish-undo project editor (:mark-action editor-state))
+  (-> editor-state
+      (dissoc :mark-action)
+      (assoc :mode :normal :prefix nil)))
+
+
+(defn- into-insert-mode
+  [project
+   editor-state
+   editor
+   & {:keys [dump-selections insertion-kind]
+      :or {dump-selections true insertion-kind :prepend}}]
+  (-> editor-state
+      (#(if dump-selections
+          (dump-drop-selections! % editor (.getDocument editor))
+          %))
+      (assoc :mode :insert
+             :debounce true
+             :insertion-kind insertion-kind
+             :prefix nil
+             :mark-action (start-undo project editor))))
+
+
 (defkeymap
   editor-handler
 
   (:any
     (KeyEvent/VK_ESCAPE
       "Back to normal mode"
-      [state editor document]
-      (when (= :insert (:mode state))
-        (restore-selections state editor document))
-      [state project editor]
-      (let [new-state (assoc state :mode :normal :prefix nil :pre-selections nil :insertion-kind nil)]
-        (if (= :insert (:mode state))
-          (do (finish-undo project editor (:mark-action state))
-              (dissoc new-state :mark-action))
-          new-state))))
+      [state project editor document]
+      (if (= :insert (:mode state))
+        (quit-insert-mode project state editor document)
+        (assoc state :mode :normal :prefix nil :pre-selections nil :insertion-kind nil))))
 
   ((:or :normal :select)
    (\u
      "Undo"
-     [editor] (actions editor IdeActions/ACTION_UNDO))
+     [editor] (actions editor IdeActions/ACTION_UNDO)
+     [document caret] (-> (ihx-selection document caret)
+                          (ihx-apply-selection! document)))
    ((:shift \U)
     "Redo"
-    [editor] (actions editor IdeActions/ACTION_REDO))
+    [editor] (actions editor IdeActions/ACTION_REDO)
+    [document caret] (-> (ihx-selection document caret)
+                         (ihx-apply-selection! document)))
    (\y
      "Yank"
      [project-state editor document]
@@ -71,8 +93,7 @@
              (ihx-apply-selection! document))
          (.setSelection caret (.getSelectionEnd caret) (.getSelectionEnd caret)))
      [project editor state]
-     (let [new-state
-           (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor))]
+     (let [new-state (into-insert-mode project state editor :dump-selections false)]
        (actions editor IdeActions/ACTION_EDITOR_ENTER)
        new-state))
    ((:shift \O)
@@ -84,8 +105,7 @@
             (ihx-apply-selection! document))
         (.setSelection caret (.getSelectionEnd caret) (.getSelectionEnd caret)))
     [project editor state]
-    (let [new-state
-          (assoc state :mode :insert :prefix nil :mark-action (start-undo project editor))]
+    (let [new-state (into-insert-mode project state editor :dump-selections false)]
       (actions editor IdeActions/ACTION_EDITOR_ENTER)
       new-state))
    ((:shift \%)
@@ -112,10 +132,7 @@
          ihx-make-forward
          (ihx-apply-selection! document))
      [project editor state document]
-     (let [new-state
-           (-> state
-               (dump-drop-selections! editor document)
-               (assoc :mode :insert :insertion-kind :append :prefix nil :mark-action (start-undo project editor)))]
+     (let [new-state (into-insert-mode project state editor :insertion-kind :append)]
        (actions editor IdeActions/ACTION_EDITOR_MOVE_CARET_RIGHT)
        new-state))
    ((:shift \A)
@@ -125,20 +142,16 @@
         (ihx-move-line-end editor document)
         ihx-shrink-selection
         (ihx-apply-selection! document))
-    [project editor state document]
-    (-> state
-        (dump-drop-selections! editor document)
-        (assoc :mode :insert :insertion-kind :prepend :prefix nil :mark-action (start-undo project editor))))
+    [project editor state]
+    (into-insert-mode project state editor))
    (\i
      "Prepend to selections"
      [document caret]
      (-> (ihx-selection document caret)
          ihx-make-backward
          (ihx-apply-selection! document))
-     [project editor state document]
-     (-> state
-         (dump-drop-selections! editor document)
-         (assoc :mode :insert :insertion-kind :prepend :prefix nil :mark-action (start-undo project editor))))
+     [project editor state]
+     (into-insert-mode project state editor))
    ((:shift \I)
     "Prepend to lines"
     [editor document caret]
@@ -146,10 +159,8 @@
         (ihx-move-line-start editor document)
         ihx-shrink-selection
         (ihx-apply-selection! document))
-    [project editor state document]
-    (-> state
-        (dump-drop-selections! editor document)
-        (assoc :mode :insert :insertion-kind :prepend :prefix nil :mark-action (start-undo project editor))))
+    [project editor state]
+    (into-insert-mode project state editor))
    ((:or (:alt \;) (:alt \u2026))
     "Flip selection" :scroll
     [document caret] (-> (ihx-selection document caret)
@@ -322,7 +333,8 @@
     (\d
       "Goto declaration" :jumplist-add
       [editor]
-      (actions editor IdeActions/ACTION_GOTO_DECLARATION))
+      (actions editor IdeActions/ACTION_GOTO_DECLARATION)
+      [state] (assoc state :mode :normal))
     (\h
       "Move carets to line start" :scroll
       [editor document caret]
@@ -388,47 +400,31 @@
     (_ [state] (assoc state :mode :select)))
 
   (:insert
-    (_ [project-state] (assoc project-state :pass true))
-    #_((:or (:ctrl \a) (:ctrl \u0001)) [document caret] (move-caret-line-start document caret))
-    #_((:or (:ctrl \e) (:ctrl \u0005)) [document caret] (move-caret-line-end document caret))
-    #_(KeyEvent/VK_BACK_SPACE :write
-                              [document caret] (backspace document caret)
-                              [project editor] (psi-commit project editor))
-    #_(KeyEvent/VK_ENTER
-                         [editor document] (enter document)
-                         [project editor] (psi-commit project editor))
-    #_(KeyEvent/VK_TAB
-        [project editor]
-        (completion project editor))
-    #_(_
-        :write
-         [document caret char]
-         (some-> (ihx-selection document caret :insert-mode true)
-             (ihx-insert-char document char)
-             (ihx-apply-selection! document))
-        [project editor]
-        (psi-commit project editor))))
-
-
-(defn- caret-listener
-  [editor]
-  (reify CaretListener
-    (caretPositionChanged
-      [_ event]
-      (ui/highlight-primary-caret editor event))))
+    (_ [project-state] (assoc project-state :pass true))))
 
 
 (defn handle-editor-event
   [project ^EditorImpl editor ^KeyEvent event]
   (let [project-state (get @state project)
         editor-state (or (get project-state editor) {:mode :normal})
-        result (editor-handler project project-state editor-state editor event)
-        pass (:pass result)]
+        mode (:mode editor-state)
+        debounce (:debounce editor-state)
+        result-fn (partial editor-handler project project-state editor-state editor event)
+        result
+        (if (= mode :insert)
+          (cond
+            (= (.getKeyCode event) KeyEvent/VK_ESCAPE) (result-fn)
+            (and debounce (= (.getID event) KeyEvent/KEY_TYPED))
+            {editor (assoc editor-state :debounce false)}
+            :else :pass)
+          (if (= (.getID event) KeyEvent/KEY_PRESSED)
+            (result-fn)
+            nil))]
     (cond
-      pass false
+      (= :pass result) false
       (map? result) (do
                       (.consume event)
-                      (vswap! state assoc project result)
+                      (swap! state assoc project (deep-merge project-state result))
                       (ui/update-mode-panel! project (get-in @state [project editor]))
                       true)
       :default (do

@@ -48,7 +48,7 @@ before the first character or before the last.**
 
 To illustrate this, let's introduce a legend:
 
-- `|` -- Line caret (default in IntelliJ IDEA and many other non-TUI editors)
+- `|` -- Line caret (default in Idea and many other non-TUI editors)
 - `|x|` -- Block caret highlighting character `x` (as in Helix)
 - `║` -- Selection boundaries
 
@@ -73,30 +73,23 @@ before the last selected character.**
 If the buffer is empty, no selection exists—this is the only exception to the first rule.
 As soon as text is inserted, the standard behavior applies.
 
-### Insertion Mode
+### Insertion mode
 
-In Helix, a one-character selection behaves like a block caret in normal mode, but in
-insertion mode, it functions as an actual insertion point. Typed characters appear before
-the caret, shifting it forward. IntelliJ's line caret, which can exist independently
-of selections, is used in IdeaHelix to provide a clearer representation of insertion
-behavior.
+In Helix, a caret is effectively a one-character selection outside of insert mode and
+behaves like a block caret within it. IdeaHelix ensures text is inserted at the same
+position as in Helix but uses Idea’s native visual representation -- a line caret with
+selections turned off.
 
-**In insertion mode, the line caret marks the actual insertion point.**
+Insert mode in IdeaHelix bypasses its own handlers, temporarily handing control back
+to Idea. This simplifies insert mode behavior, allowing Idea’s features to work without
+interference. As a bonus, this also enables the use of native keystroke configurations
+within insert mode.
 
-For example, typing `u` in the following scenario results in `helulo`:
-
-```
-Hx : h e l|l|o
-IHx: h e l|l o
-```
-
-### Append & Prepend Behavior
-
-In Helix, selections stay active and may expand when entering insert mode with prepend or
-append. However, due to IDEA’s limitations, IdeaHelix must temporarily turn off selections
-while typing. This makes insert mode work smoothly with IDEA’s features, like completions,
-which rely on the selection start instead of the caret position. Once insert mode ends,
-selections are restored to match how they would look in Helix.
+In Helix, selections remain active and may expand when entering insert mode via prepend
+or append. However, due to Idea’s limitations, IdeaHelix must disable selections while
+typing. This ensures seamless integration with Idea’s completion system, which relies
+on the selection start rather than the actual caret position. Once insert mode ends,
+selections are restored to match how they would appear in Helix.
 
 ```
 Append:

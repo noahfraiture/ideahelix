@@ -26,7 +26,6 @@
   (condp instance? focus-owner
     EditorComponentImpl
     (handle-editor-event project (.getEditor ^EditorComponentImpl focus-owner) event)
-
     false))
 
 
@@ -47,7 +46,7 @@
       (let [listener (caret-listener editor)
             _ (.. editor getCaretModel (addCaretListener listener))
             updated-state (assoc editor-state :caret-listener listener)]
-        (vswap! state assoc-in [project editor] updated-state)))
+        (swap! state assoc-in [project editor] updated-state)))
     (ui/update-mode-panel! project editor-state)
     (when (= (:state editor-state) :normal)
       (.. editor getCaretModel

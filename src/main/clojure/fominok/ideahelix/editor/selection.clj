@@ -59,16 +59,6 @@
       (update :offset + n)))
 
 
-(defn ihx-append
-  [selection]
-  (assoc selection :in-append true))
-
-
-(defn ihx-append-quit
-  [selection]
-  (assoc selection :in-append false))
-
-
 (defn ihx-offset
   [selection offset]
   (assoc selection :offset offset))
@@ -348,30 +338,37 @@
     (assoc state :pre-selections ihx-selections)))
 
 
+(defn- restore-saved-selections
+  [document {:keys [pre-selections insertion-kind]} carets]
+  (when-not (empty? pre-selections)
+    (let [delta (- (.getOffset (first carets)) (:offset (first pre-selections))
+                   (if (= insertion-kind :append) 1 0))
+          increasing-deltas (map (partial * delta) (range))]
+      (doseq [[{:keys [caret anchor] :as selection} delta-anchor]
+              (map vector pre-selections increasing-deltas)
+              :let [new-offset (.getOffset caret)
+                    new-anchor (+ anchor delta-anchor)]]
+        (case insertion-kind
+          :append (if (>= new-offset new-anchor)
+                    (-> selection
+                        (assoc :anchor new-anchor)
+                        (assoc :offset (dec new-offset))
+                        (ihx-apply-selection! document))
+                    (-> (ihx-selection document caret)
+                        (ihx-move-backward 1)
+                        (ihx-apply-selection! document)))
+          (-> selection
+              (ihx-nudge (+ delta delta-anchor))
+              (ihx-apply-selection! document)))))))
+
+
 (defn restore-selections
-  [{:keys [pre-selections insertion-kind]} editor document]
+  [{:keys [pre-selections] :as state} editor document]
   (let [carets (.. editor getCaretModel getAllCarets)
         saved-carets (into #{} (map :caret pre-selections))
-        free-carets (filter (complement saved-carets) carets)
-        delta (- (.getOffset (first carets)) (:offset (first pre-selections))
-                 (if (= insertion-kind :append) 1 0))
-        increasing-deltas (map (partial * delta) (range))]
-    (doseq [[{:keys [caret anchor] :as selection} delta-anchor]
-            (map vector pre-selections increasing-deltas)
-            :let [new-offset (.getOffset caret)
-                  new-anchor (+ anchor delta-anchor)]]
-      (case insertion-kind
-        :append (if (>= new-offset new-anchor)
-                  (-> selection
-                      (assoc :anchor new-anchor)
-                      (assoc :offset (dec new-offset))
-                      (ihx-apply-selection! document))
-                  (-> (ihx-selection document caret)
-                      (ihx-move-backward 1)
-                      (ihx-apply-selection! document)))
-        (-> selection
-            (ihx-nudge (+ delta delta-anchor))
-            (ihx-apply-selection! document))))
+        free-carets (filter (complement saved-carets) carets)]
+    (restore-saved-selections document state carets)
     (doseq [caret free-carets]
       (-> (ihx-selection document caret)
-          (ihx-apply-selection! document)))))
+          (ihx-apply-selection! document))))
+  (dissoc state :pre-selections :insertion-kind))

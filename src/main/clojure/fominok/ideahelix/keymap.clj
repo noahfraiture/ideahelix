@@ -7,7 +7,8 @@
   (:require
     [clojure.spec.alpha :as s]
     [fominok.ideahelix.editor.jumplist :refer [jumplist-add]]
-    [fominok.ideahelix.editor.selection :refer [scroll-to-primary-caret]])
+    [fominok.ideahelix.editor.selection :refer [scroll-to-primary-caret]]
+    [fominok.ideahelix.editor.util :refer [deep-merge]])
   (:import
     (com.intellij.openapi.command
       CommandProcessor
@@ -136,17 +137,6 @@
     (let [matchers (get-in matcher [1 :matchers])]
       (map process-single-matcher matchers))
     [(process-single-matcher matcher)]))
-
-
-(defn deep-merge
-  [& maps]
-  (reduce (fn [m1 m2]
-            (merge-with (fn [v1 v2]
-                          (if (and (map? v1) (map? v2))
-                            (deep-merge v1 v2)
-                            v2))
-                        m1 m2))
-          maps))
 
 
 (defn- process-body
