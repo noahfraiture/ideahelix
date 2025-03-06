@@ -48,7 +48,7 @@
             updated-state (assoc editor-state :caret-listener listener)]
         (swap! state assoc-in [project editor] updated-state)))
     (ui/update-mode-panel! project editor-state)
-    (when (= (:state editor-state) :normal)
+    (when (= (:mode editor-state) :normal)
       (.. editor getCaretModel
           (runForEachCaret (fn [caret]
                              (-> (ihx-selection document caret)

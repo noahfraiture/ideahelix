@@ -13,7 +13,9 @@
       FileEditorManagerImpl
       FileEditorOpenOptions)
     (com.intellij.openapi.vfs
-      VirtualFile)))
+      VirtualFile)
+    (com.intellij.util.ui
+      UIUtil)))
 
 
 (defn- serialize-selection
@@ -22,8 +24,10 @@
 
 
 (defn jumplist-add
-  [project-state editor document]
-  (let [{:keys [stack pointer] :or {pointer 0}} (:jumplist project-state)
+  [project project-state]
+  (let [editor (.. (FileEditorManager/getInstance project) getSelectedTextEditor)
+        document (.getDocument editor)
+        {:keys [stack pointer] :or {pointer 0}} (:jumplist project-state)
         model (.getCaretModel editor)
         primary-caret (.getPrimaryCaret model)
         secondary-carets (filter (partial not= primary-caret) (.getAllCarets model))
@@ -43,17 +47,21 @@
   [project file]
   (let [manager (FileEditorManager/getInstance project)
         window (.getCurrentWindow manager)]
-    (.openFile ^FileEditorManagerImpl manager ^VirtualFile file ^EditorWindow window (FileEditorOpenOptions.))))
+    (.openFile ^FileEditorManagerImpl manager ^VirtualFile file ^EditorWindow window (FileEditorOpenOptions.))
+    (UIUtil/invokeLaterIfNeeded
+      (fn [] (.. manager getSelectedTextEditor getContentComponent requestFocus)))))
 
 
 (defn- jumplist-apply!
-  [project-state project editor document new-pointer]
+  [project-state project new-pointer]
   (let [stack (get-in project-state [:jumplist :stack])
+        {:keys [primary-caret secondary-carets file]} (nth stack new-pointer)
+        _  (open-file-current-window project file)
+        editor (.. (FileEditorManager/getInstance project) getSelectedTextEditor)
+        document (.getDocument editor)
         model (.getCaretModel editor)
         primary (.getPrimaryCaret model)
-        text-length (.getTextLength document)
-        {:keys [primary-caret secondary-carets file]} (nth stack new-pointer)]
-    (open-file-current-window project file)
+        text-length (.getTextLength document)]
     (-> (->IhxSelection primary
                         (:anchor primary-caret)
                         (:offset primary-caret)
@@ -67,19 +75,19 @@
 
 
 (defn jumplist-backward!
-  [project-state project editor document]
+  [project-state project]
   (let [{:keys [pointer] :or {pointer 0}} (:jumplist project-state)
         new-pointer (dec pointer)]
     (if (>= new-pointer 0)
-      (jumplist-apply! project-state project editor document new-pointer)
+      (jumplist-apply! project-state project new-pointer)
       project-state)))
 
 
 (defn jumplist-forward!
-  [project-state project editor document]
+  [project-state project]
   (let [{:keys [pointer stack] :or {pointer 0}} (:jumplist project-state)
         new-pointer (inc pointer)]
     (if (< pointer (count stack))
-      (assoc-in (jumplist-apply! project-state project editor document pointer)
+      (assoc-in (jumplist-apply! project-state project pointer)
                 [:jumplist :pointer] new-pointer)
       project-state)))

@@ -214,10 +214,9 @@
                                          `(let [return# ~s]
                                             (assoc-in (if (map? return#) return# ~project-state) [~editor :prefix] nil))))
           (extras :jumplist-add) ((fn [s]
-                                    `(let [document# (.getDocument ~editor)
-                                           jl-pre# (jumplist-add ~project-state ~editor document#)
+                                    `(let [jl-pre# (jumplist-add ~project ~project-state)
                                            return# ~s
-                                           jl-after# (jumplist-add jl-pre# ~editor document#)]
+                                           jl-after# (jumplist-add ~project jl-pre#)]
                                        (merge return# (select-keys jl-after# [:jumplist]))))))]
     `(fn [^Project ~project ~project-state ~state ^EditorImpl ~editor ^KeyEvent ~event]
        (deep-merge ~project-state ~statement))))

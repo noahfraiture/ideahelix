@@ -201,15 +201,15 @@
    ((:or (:ctrl \o) (:ctrl \u000f))
     "Jump backward"
     [project-state project editor document]
-    (jumplist-backward! project-state project editor document))
+    (jumplist-backward! project-state project))
    ((:or (:ctrl \i) (:ctrl \u0009))
     "Jump forward"
     [project-state project editor document]
-    (jumplist-forward! project-state project editor document))
+    (jumplist-forward! project-state project))
    ((:or (:ctrl \s) (:ctrl \u0013))
     "Add to jumplist"
-    [project-state editor document]
-    (jumplist-add project-state editor document)))
+    [project-state project document]
+    (jumplist-add  project project-state)))
 
   (:normal
     (\g "Goto mode" :keep-prefix [state] (assoc state :mode :goto))
