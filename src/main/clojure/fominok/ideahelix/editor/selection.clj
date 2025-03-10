@@ -5,6 +5,7 @@
 (ns fominok.ideahelix.editor.selection
   (:import
     (com.intellij.openapi.editor
+      Document
       ScrollType
       VisualPosition)
     (com.intellij.openapi.editor.actions
@@ -372,3 +373,21 @@
       (-> (ihx-selection document caret)
           (ihx-apply-selection! document))))
   (dissoc state :pre-selections :insertion-kind))
+
+
+(defn find-next-occurrence
+  [^CharSequence text char-to-find]
+  (first (keep-indexed #(when (= %2 char-to-find) %1) text)))
+
+
+(defn find-char
+  [^Document document caret ^Character char]
+  (when (or (Character/isLetterOrDigit char)
+            ((into #{} "!@#$%^&*()_+-={}[]|;:<>.,?~`") char))
+    (let [text (.getCharsSequence document)
+          len (.length text)]
+      (when-let [delta (find-next-occurrence (.subSequence text (+ 2 (.getOffset caret)) len) char)]
+        (-> (ihx-selection document caret)
+            (ihx-shrink-selection)
+            (ihx-move-forward (inc delta))
+            (ihx-apply-selection! document))))))

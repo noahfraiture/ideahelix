@@ -73,10 +73,18 @@
         (quit-insert-mode project state editor document)
         (assoc state :mode :normal :prefix nil :pre-selections nil :insertion-kind nil))))
 
+  (:find-char
+    (_ [document caret char] (find-char document caret char)
+       [state] (assoc state :mode (:previous-mode state))))
+
   ((:or :normal :select)
    (\space
      "Space menu"
      [state] (assoc state :mode :space))
+   (\t
+     "Find till char"
+     [state] (assoc state :mode :find-char
+                    :previous-mode (:mode state)))
    (\u
      "Undo"
      [editor] (actions editor IdeActions/ACTION_UNDO)
@@ -418,8 +426,8 @@
         (assoc state :mode :normal))))
 
 
-  (:insert
-    (_ [project-state] (assoc project-state :pass true))))
+  #_(:insert
+      (_ [project-state] (assoc project-state :pass true))))
 
 
 (defn handle-editor-event

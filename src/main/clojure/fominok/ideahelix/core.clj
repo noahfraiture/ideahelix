@@ -10,12 +10,19 @@
     [fominok.ideahelix.editor.ui :as ui]
     [nrepl.server :refer [start-server]])
   (:import
+    (com.intellij.ide.actions.searcheverywhere
+      SearchEverywhereManager)
     (com.intellij.openapi.editor
       Editor)
     (com.intellij.openapi.editor.event
       CaretListener)
     (com.intellij.openapi.editor.impl
-      EditorComponentImpl)))
+      EditorComponentImpl)
+    (com.intellij.openapi.fileEditor
+      FileEditorManager
+      FileEditorManagerListener)
+    (com.intellij.openapi.project
+      Project)))
 
 
 (set! *warn-on-reflection* true)
@@ -53,6 +60,10 @@
           (runForEachCaret (fn [caret]
                              (-> (ihx-selection document caret)
                                  (ihx-apply-selection! document))))))))
+
+
+(defn init
+  [^Project project])
 
 
 (defonce -server (start-server :port 7888 :handler cider-nrepl-handler))
