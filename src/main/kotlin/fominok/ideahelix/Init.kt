@@ -9,12 +9,17 @@ package fominok.ideahelix
 import clojure.java.api.Clojure
 import clojure.lang.IFn
 import com.intellij.ide.IdeEventQueue
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.ex.EditorEventMulticasterEx
 import com.intellij.openapi.editor.ex.FocusChangeListener
+import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.fileEditor.FileEditorManagerListener
+import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
+import com.intellij.openapi.vfs.VirtualFile
 import java.awt.KeyboardFocusManager
 import java.awt.event.KeyEvent
 
@@ -43,13 +48,36 @@ class Init : ProjectActivity {
 
         init(project)
 
+        val fileEditorManager = FileEditorManager.getInstance(project)
+        val applicationManager = ApplicationManager.getApplication()
+
+        fileEditorManager.openFiles.forEach {
+            applicationManager.invokeLater({
+                val editor = (fileEditorManager.getEditors(it).firstOrNull() as TextEditor).editor
+                focusEditor.invoke(project, editor)
+            })
+        }
+
+        project.messageBus.connect().subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, object: FileEditorManagerListener {
+            override fun fileOpened(source: FileEditorManager, file: VirtualFile) {
+                super.fileOpened(source, file)
+                applicationManager.invokeLater({
+                    val editor: TextEditor = source.getEditors(file).firstOrNull() as TextEditor
+                    focusEditor.invoke(project, editor.editor)
+                })
+            }
+        })
+
         val caster: EditorEventMulticasterEx = EditorFactory.getInstance().eventMulticaster as EditorEventMulticasterEx;
         caster.addFocusChangeListener(object : FocusChangeListener {
             override fun focusGained(editor: Editor) {
                 super.focusGained(editor)
-                focusEditor.invoke(project, editor)
+                applicationManager.invokeLater({
+                    focusEditor.invoke(project, editor)
+                })
             }
         }, project)
+
 
         IdeEventQueue.getInstance().addDispatcher({
             if (it is KeyEvent) {

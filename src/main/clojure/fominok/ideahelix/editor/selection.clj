@@ -381,13 +381,16 @@
 
 
 (defn find-char
-  [^Document document caret ^Character char]
+  [^Document document caret ^Character char & {:keys [include expand]
+                                               :or {include false
+                                                    expand false}}]
   (when (or (Character/isLetterOrDigit char)
             ((into #{} "!@#$%^&*()_+-={}[]|;:<>.,?~`") char))
     (let [text (.getCharsSequence document)
           len (.length text)]
       (when-let [delta (find-next-occurrence (.subSequence text (+ 2 (.getOffset caret)) len) char)]
-        (-> (ihx-selection document caret)
-            (ihx-shrink-selection)
-            (ihx-move-forward (inc delta))
-            (ihx-apply-selection! document))))))
+        (cond-> (ihx-selection document caret)
+          (not expand) (ihx-shrink-selection)
+          true (ihx-move-forward (inc delta))
+          include (ihx-move-forward 1)
+          true (ihx-apply-selection! document))))))

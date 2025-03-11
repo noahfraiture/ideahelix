@@ -74,7 +74,11 @@
         (assoc state :mode :normal :prefix nil :pre-selections nil :insertion-kind nil))))
 
   (:find-char
-    (_ [document caret char] (find-char document caret char)
+    (_ [state document caret char]
+       (let [prev-mode (:previous-mode state)
+             include (:find-char-include state)
+             expand (= prev-mode :select)]
+         (find-char document caret char :expand expand :include include))
        [state] (assoc state :mode (:previous-mode state))))
 
   ((:or :normal :select)
@@ -84,6 +88,12 @@
    (\t
      "Find till char"
      [state] (assoc state :mode :find-char
+                    :find-char-include false
+                    :previous-mode (:mode state)))
+   (\f
+     "Find including char"
+     [state] (assoc state :mode :find-char
+                    :find-char-include true
                     :previous-mode (:mode state)))
    (\u
      "Undo"
