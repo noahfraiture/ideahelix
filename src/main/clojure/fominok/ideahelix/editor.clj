@@ -468,18 +468,27 @@
             action-event (AnActionEvent/createFromDataContext
                            ActionPlaces/KEYBOARD_SHORTCUT nil data-context)]
         (.show manager "FileSearchEverywhereContributor" nil action-event)
+        (assoc state :mode :normal)))
+    (\/
+      "Global search"
+      [state project editor]
+      (let [manager (.. SearchEverywhereManager (getInstance project))
+            data-context (.getDataContext editor)
+            action-event (AnActionEvent/createFromDataContext
+                           ActionPlaces/KEYBOARD_SHORTCUT nil data-context)]
+        (.show manager "TextSearchContributor" nil action-event)
         (assoc state :mode :normal))))
 
   (:view
-    (\z
-      "Center screen"
-      [editor state]
-      (let [caret (.. editor getCaretModel getPrimaryCaret)
-            scrolling-model (.getScrollingModel editor)]
-        (.scrollTo scrolling-model
-                   (.offsetToLogicalPosition editor (.. caret getOffset))
-                   ScrollType/CENTER)
-        (assoc state :mode (:previous-mode state))))))
+    ((:or \z \c)
+     "Center screen"
+     [editor state]
+     (let [caret (.. editor getCaretModel getPrimaryCaret)
+           scrolling-model (.getScrollingModel editor)]
+       (.scrollTo scrolling-model
+                  (.offsetToLogicalPosition editor (.. caret getOffset))
+                  ScrollType/CENTER)
+       (assoc state :mode (:previous-mode state))))))
 
 
 (defn handle-editor-event
