@@ -10,7 +10,7 @@
     [fominok.ideahelix.editor.registers :refer :all]
     [fominok.ideahelix.editor.selection :refer :all]
     [fominok.ideahelix.editor.ui :as ui]
-    [fominok.ideahelix.editor.util :refer [deep-merge]]
+    [fominok.ideahelix.editor.util :refer [deep-merge get-editor-height]]
     [fominok.ideahelix.keymap :refer [defkeymap]])
   (:import
     (com.intellij.ide.actions.searcheverywhere
@@ -19,6 +19,8 @@
       ActionPlaces
       AnActionEvent
       IdeActions)
+    (com.intellij.openapi.editor
+      ScrollType)
     (com.intellij.openapi.editor.impl
       EditorImpl)
     (java.awt.event
@@ -85,6 +87,9 @@
    (\space
      "Space menu"
      [state] (assoc state :mode :space))
+   (\z
+     "View menu"
+     [state] (assoc state :mode :view :previous-mode (:mode state)))
    (\t
      "Find till char"
      [state] (assoc state :mode :find-char
@@ -239,6 +244,22 @@
   (:normal
     (\g "Goto mode" :keep-prefix [state] (assoc state :mode :goto))
     (\v "Selection mode" [state] (assoc state :mode :select))
+    ((:or (:ctrl \d) (:ctrl \u0004))
+     "Move down half page" :scroll
+     [editor document caret]
+     (let [n-lines (quot (get-editor-height editor) 2)]
+       (-> (ihx-selection document caret)
+           (ihx-move-relative! :lines n-lines)
+           (ihx-shrink-selection)
+           (ihx-apply-selection! document))))
+    ((:or (:ctrl \d) (:ctrl \u0015))
+     "Move up half page extending" :scroll
+     [editor document caret]
+     (let [n-lines (quot (get-editor-height editor) 2)]
+       (-> (ihx-selection document caret)
+           (ihx-move-relative! :lines (- n-lines))
+           (ihx-shrink-selection)
+           (ihx-apply-selection! document))))
     (\p
       "Paste" :undoable :write
       [project-state editor document]
@@ -301,6 +322,20 @@
       [state] (assoc state :mode :select-goto))
     (\v
       "Back to normal mode" [state] (assoc state :mode :normal))
+    ((:or (:ctrl \d) (:ctrl \u0004))
+     "Move down half page extending" :scroll
+     [editor document caret]
+     (let [n-lines (quot (get-editor-height editor) 2)]
+       (-> (ihx-selection document caret)
+           (ihx-move-relative! :lines n-lines)
+           (ihx-apply-selection! document))))
+    ((:or (:ctrl \d) (:ctrl \u0015))
+     "Move up half page extending" :scroll
+     [editor document caret]
+     (let [n-lines (quot (get-editor-height editor) 2)]
+       (-> (ihx-selection document caret)
+           (ihx-move-relative! :lines (- n-lines))
+           (ihx-apply-selection! document))))
     (\p
       "Paste" :undoable :write
       [project-state editor document]
@@ -435,15 +470,22 @@
         (.show manager "FileSearchEverywhereContributor" nil action-event)
         (assoc state :mode :normal))))
 
-
-  #_(:insert
-      (_ [project-state] (assoc project-state :pass true))))
+  (:view
+    (\z
+      "Center screen"
+      [editor state]
+      (let [caret (.. editor getCaretModel getPrimaryCaret)
+            scrolling-model (.getScrollingModel editor)]
+        (.scrollTo scrolling-model
+                   (.offsetToLogicalPosition editor (.. caret getOffset))
+                   ScrollType/CENTER)
+        (assoc state :mode (:previous-mode state))))))
 
 
 (defn handle-editor-event
   [project ^EditorImpl editor ^KeyEvent event]
   (let [project-state (get @state project)
-        editor-state (or (get project-state editor) {:mode :normal})
+        editor-state (merge {:mode :normal} (get project-state editor))
         mode (:mode editor-state)
         debounce (:debounce editor-state)
         result-fn (partial editor-handler project project-state editor-state editor event)

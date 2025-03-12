@@ -22,7 +22,8 @@
   (let [id (ModePanel/ID)
         status-bar (.. WindowManager getInstance (getStatusBar project))
         widget (.getWidget status-bar id)
-        mode-text (str/upper-case (name (:mode editor-state)))
+        mode-text (str/upper-case (name (or (:mode editor-state)
+                                            :normal)))
         widget-text
         (str
           (when-let [prefix (:prefix editor-state)] (format "(%s) " (apply str prefix)))

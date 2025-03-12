@@ -19,3 +19,10 @@
 (defn get-caret-contents
   [document caret]
   (.getText document (.getSelectionRange caret)))
+
+
+(defn get-editor-height
+  [editor]
+  (let [editor-height-px (.. editor getScrollingModel getVisibleArea getHeight)
+        line-height-px (.getLineHeight editor)]
+    (int (quot editor-height-px line-height-px))))

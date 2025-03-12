@@ -10,17 +10,12 @@
     [fominok.ideahelix.editor.ui :as ui]
     [nrepl.server :refer [start-server]])
   (:import
-    (com.intellij.ide.actions.searcheverywhere
-      SearchEverywhereManager)
     (com.intellij.openapi.editor
       Editor)
     (com.intellij.openapi.editor.event
       CaretListener)
     (com.intellij.openapi.editor.impl
       EditorComponentImpl)
-    (com.intellij.openapi.fileEditor
-      FileEditorManager
-      FileEditorManagerListener)
     (com.intellij.openapi.project
       Project)))
 
