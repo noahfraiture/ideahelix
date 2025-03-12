@@ -90,6 +90,9 @@
    (\z
      "View menu"
      [state] (assoc state :mode :view :previous-mode (:mode state)))
+   ((:or (:ctrl \w) (:ctrl \u0017))
+    "Window menu"
+    [state] (assoc state :mode :window))
    (\t
      "Find till char"
      [state] (assoc state :mode :find-char
@@ -488,7 +491,21 @@
        (.scrollTo scrolling-model
                   (.offsetToLogicalPosition editor (.. caret getOffset))
                   ScrollType/CENTER)
-       (assoc state :mode (:previous-mode state))))))
+       (assoc state :mode (:previous-mode state)))))
+
+  (:window
+    (\v
+      "Split vertical"
+      [editor] (actions editor "SplitVertically")
+      [state] (assoc state :mode :normal))
+    ((:or \w (:ctrl \u0017))
+     "Switch split"
+     [editor] (actions editor "NextSplitter")
+     [state] (assoc state :mode :normal))
+    (\o
+      [editor] (actions editor "UnsplitAll")
+      [state] (assoc state :mode :normal))
+    (_ [state] (assoc state :mode :normal))))
 
 
 (defn handle-editor-event
