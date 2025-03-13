@@ -398,6 +398,14 @@
       [editor]
       (actions editor IdeActions/ACTION_GOTO_DECLARATION)
       [state] (assoc state :mode :normal))
+    (\n
+      "Next tab"
+      [editor]
+      (actions editor IdeActions/ACTION_NEXT_TAB))
+    (\p
+      "Previous tab"
+      [editor]
+      (actions editor IdeActions/ACTION_PREVIOUS_TAB))
     (\h
       "Move carets to line start" :scroll
       [editor document caret]
