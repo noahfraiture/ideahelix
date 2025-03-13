@@ -52,8 +52,7 @@
 (s/def ::dep
   (s/or :char (partial = 'char) ; typed character
         :editor (partial = 'editor) ; editor in focus
-        :state (partial = 'state) ; ideahelix->project->editor state
-        :project-state (partial = 'project-state) ; ideahelix->project state
+        :state (partial = 'state) ; ideahelix->project state
         :document (partial = 'document) ; document instance running in the editor
         :caret (partial = 'caret) ; one caret, makes body applied to each one equally
         :project (partial = 'project))) ; wrap into "critical section" required on modifications)) ;; wraps body into a single undoable action
@@ -123,7 +122,7 @@
                             (eval matcher-core))
         matcher-type (cond
                        (char? evaluated-matcher) :char
-                       (instance? java.lang.Integer evaluated-matcher) :int
+                       (instance? Integer evaluated-matcher) :int
                        (fn? evaluated-matcher) :fn)]
     (if (= evaluated-matcher :any)
       [:any]
@@ -143,15 +142,13 @@
   "Taking a dependencies vector and a statement, this function wraps the statement
   with requested dependencies with symbols linked.
   For `caret` dependency the body will be executed for each caret."
-  [project project-state state editor event {:keys [deps statement]}]
+  [project project-state editor event {:keys [deps statement]}]
   (let [deps-bindings-split (group-by #(#{:caret} (first %)) deps)
-        uses-editor-state (some #(#{:state} (first %)) deps)
         deps-bindings-top
         (into [] (mapcat
                    (fn [[kw sym]]
                      [sym (case kw
-                            :state state
-                            :project-state project-state
+                            :state project-state
                             :project project
                             :document `(.getDocument ~editor)
                             :char `(.getKeyChar ~event)
@@ -167,10 +164,7 @@
                   caret-model#
                   (fn [~caret-sym] ~s))))))]
     `(let ~deps-bindings-top
-       (let [result# ~gen-statement]
-         (if (and (map? result#) ~uses-editor-state)
-           {~editor result#}
-           result#)))))
+       ~gen-statement)))
 
 
 (defn- process-bodies
@@ -179,10 +173,9 @@
   [bodies extras doc]
   (let [project (gensym "project")
         project-state (gensym "project-state")
-        state (gensym "state")
         editor (gensym "editor")
         event (gensym "event")
-        bodies (map (partial process-body project project-state state editor event) bodies)
+        bodies (map (partial process-body project project-state editor event) bodies)
         docstring (or (str "IHx: " doc) "IdeaHelix command")
         statement
         (cond-> `(deep-merge ~@bodies)
@@ -212,14 +205,14 @@
                                 @return#)))
           (not (extras :keep-prefix)) ((fn [s]
                                          `(let [return# ~s]
-                                            (assoc-in (if (map? return#) return# ~project-state) [~editor :prefix] nil))))
+                                            (assoc (if (map? return#) return# ~project-state) :prefix nil))))
           (extras :jumplist-add) ((fn [s]
                                     `(let [jl-pre# (jumplist-add ~project ~project-state)
                                            return# ~s
                                            jl-after# (jumplist-add ~project jl-pre#)]
                                        (merge return# (select-keys jl-after# [:jumplist]))))))]
-    `(fn [^Project ~project ~project-state ~state ^EditorImpl ~editor ^KeyEvent ~event]
-       (deep-merge ~project-state ~statement))))
+    `(fn [^Project ~project ~project-state ^EditorImpl ~editor ^KeyEvent ~event]
+       (merge ~project-state ~statement))))
 
 
 (defn- process-mappings
@@ -231,7 +224,6 @@
       (let [bodies (process-bodies (:bodies m) (into #{} (map first) (:extras m)) (:doc m))
             match-paths (process-matcher (:matcher m))]
         (reduce (fn [a p] (assoc-in a p bodies)) acc match-paths)))
-
     {}
     mappings))
 
@@ -252,11 +244,11 @@
         (as-> (s/conform ::defkeymap mappings) $
               (reduce flatten-modes {} $)
               (update-vals $ process-mappings))]
-    `(defn ~ident [project# project-state# state# ^EditorImpl editor# ^KeyEvent event#]
+    `(defn ~ident [project# project-state# ^EditorImpl editor# ^KeyEvent event#]
        (let [modifier# (or (when (.isControlDown event#) :ctrl)
                            (when (.isAltDown event#) :alt)
                            (when (.isShiftDown event#) :shift))
-             mode# (:mode state#)
+             mode# (:mode project-state#)
              any-mode-matchers# (get-in ~rules [:any modifier#])
              cur-mode-matchers# (get-in ~rules [mode# modifier#])
              find-matcher#
@@ -271,4 +263,4 @@
                  (find-matcher# cur-mode-matchers#)
                  (get-in ~rules [mode# :any]))]
          (if-let [handler# handler-opt#]
-           (handler# project# project-state# state# editor# event#))))))
+           (handler# project# project-state# editor# event#))))))

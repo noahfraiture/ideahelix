@@ -27,7 +27,7 @@
       KeyEvent)))
 
 
-(defonce state (atom {}))
+(defonce state-atom (atom {}))
 
 
 (def get-prefix
@@ -39,21 +39,21 @@
 
 
 (defn- quit-insert-mode
-  [project editor-state editor document]
-  (restore-selections editor-state editor document)
-  (finish-undo project editor (:mark-action editor-state))
-  (-> editor-state
+  [project state editor document]
+  (restore-selections state editor document)
+  (finish-undo project editor (:mark-action state))
+  (-> state
       (dissoc :mark-action)
       (assoc :mode :normal :prefix nil)))
 
 
 (defn- into-insert-mode
   [project
-   editor-state
+   state
    editor
    & {:keys [dump-selections insertion-kind]
       :or {dump-selections true insertion-kind :prepend}}]
-  (-> editor-state
+  (-> state
       (#(if dump-selections
           (dump-drop-selections! % editor (.getDocument editor))
           %))
@@ -115,9 +115,9 @@
                          (ihx-apply-selection! document)))
    (\y
      "Yank"
-     [project-state editor document]
-     (let [registers (copy-to-register (:registers project-state) editor document)]
-       (assoc project-state :registers registers)))
+     [state editor document]
+     (let [registers (copy-to-register (:registers state) editor document)]
+       (assoc state :registers registers)))
    (\o
      "New line below" :write :scroll
      [editor document caret]
@@ -152,12 +152,12 @@
      [char state] (update state :prefix (fnil conj []) char))
    (\d
      "Delete selections" :undoable :write
-     [project-state editor document]
-     (delete-selections project-state editor document))
+     [state editor document]
+     (delete-selections state editor document))
    (\c
      "Replace selections" :write
-     [project-state project editor document]
-     (replace-selections project-state project editor document))
+     [state project editor document]
+     (replace-selections state project editor document))
    (\a
      "Append to selections"
      [document caret]
@@ -233,16 +233,16 @@
     (add-selection-below editor caret))
    ((:or (:ctrl \o) (:ctrl \u000f))
     "Jump backward"
-    [project-state project editor document]
-    (jumplist-backward! project-state project))
+    [state project editor document]
+    (jumplist-backward! state project))
    ((:or (:ctrl \i) (:ctrl \u0009))
     "Jump forward"
-    [project-state project editor document]
-    (jumplist-forward! project-state project))
+    [state project editor document]
+    (jumplist-forward! state project))
    ((:or (:ctrl \s) (:ctrl \u0013))
     "Add to jumplist"
-    [project-state project document]
-    (jumplist-add  project project-state)))
+    [state project document]
+    (jumplist-add  project state)))
 
   (:normal
     (\g "Goto mode" :keep-prefix [state] (assoc state :mode :goto))
@@ -265,8 +265,8 @@
            (ihx-apply-selection! document))))
     (\p
       "Paste" :undoable :write
-      [project-state editor document]
-      (paste-register (:registers project-state) editor document :select true))
+      [state editor document]
+      (paste-register (:registers state) editor document :select true))
     (\w
       "Select word forward" :scroll
       [state editor document caret]
@@ -341,8 +341,8 @@
            (ihx-apply-selection! document))))
     (\p
       "Paste" :undoable :write
-      [project-state editor document]
-      (paste-register (:registers project-state) editor document))
+      [state editor document]
+      (paste-register (:registers state) editor document))
     (\w
       "Select word forward extending" :scroll
       [state document editor caret]
@@ -401,11 +401,15 @@
     (\n
       "Next tab"
       [editor]
-      (actions editor IdeActions/ACTION_NEXT_TAB))
+      (actions editor IdeActions/ACTION_NEXT_TAB)
+      [state]
+      (assoc state :mode :normal))
     (\p
       "Previous tab"
       [editor]
-      (actions editor IdeActions/ACTION_PREVIOUS_TAB))
+      (actions editor IdeActions/ACTION_PREVIOUS_TAB)
+      [state]
+      (assoc state :mode :normal))
     (\h
       "Move carets to line start" :scroll
       [editor document caret]
@@ -518,17 +522,16 @@
 
 (defn handle-editor-event
   [project ^EditorImpl editor ^KeyEvent event]
-  (let [project-state (get @state project)
-        editor-state (merge {:mode :normal} (get project-state editor))
-        mode (:mode editor-state)
-        debounce (:debounce editor-state)
-        result-fn (partial editor-handler project project-state editor-state editor event)
+  (let [project-state (or (get @state-atom project) {:mode :normal})
+        mode (:mode project-state)
+        debounce (:debounce project-state)
+        result-fn (partial editor-handler project project-state editor event)
         result
         (if (= mode :insert)
           (cond
             (= (.getKeyCode event) KeyEvent/VK_ESCAPE) (result-fn)
             (and debounce (= (.getID event) KeyEvent/KEY_TYPED))
-            {editor (assoc editor-state :debounce false)}
+            (assoc project-state :debounce false)
             :else :pass)
           (if (= (.getID event) KeyEvent/KEY_PRESSED)
             (result-fn)
@@ -537,9 +540,9 @@
       (= :pass result) false
       (map? result) (do
                       (.consume event)
-                      (swap! state assoc project (deep-merge project-state result))
-                      (ui/update-mode-panel! project (or (get-in @state [project editor])
-                                                         {:mode :normal}))
+                      (let [new-state (merge project-state result)]
+                        (swap! state-atom assoc project new-state)
+                        (ui/update-mode-panel! project new-state))
                       true)
       :default (do
                  (.consume event)
