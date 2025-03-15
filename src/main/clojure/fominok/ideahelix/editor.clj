@@ -10,7 +10,7 @@
     [fominok.ideahelix.editor.registers :refer :all]
     [fominok.ideahelix.editor.selection :refer :all]
     [fominok.ideahelix.editor.ui :as ui]
-    [fominok.ideahelix.editor.util :refer [deep-merge get-editor-height]]
+    [fominok.ideahelix.editor.util :refer [get-editor-height]]
     [fominok.ideahelix.keymap :refer [defkeymap]])
   (:import
     (com.intellij.ide.actions.searcheverywhere
@@ -19,6 +19,8 @@
       ActionPlaces
       AnActionEvent
       IdeActions)
+    (com.intellij.openapi.command.impl
+      StartMarkAction$AlreadyStartedException)
     (com.intellij.openapi.editor
       ScrollType)
     (com.intellij.openapi.editor.impl
@@ -39,12 +41,11 @@
 
 
 (defn- quit-insert-mode
-  [project state editor document]
-  (restore-selections state editor document)
-  (finish-undo project editor (:mark-action state))
-  (-> state
-      (dissoc :mark-action)
-      (assoc :mode :normal :prefix nil)))
+  [project state document]
+  (doseq [[editor {:keys [mark-action pre-selections]}] (:per-editor state)]
+    (restore-selections pre-selections (:insertion-kind state) editor document)
+    (finish-undo project editor mark-action))
+  (assoc state :mode :normal :prefix nil :per-editor nil))
 
 
 (defn- into-insert-mode
@@ -53,15 +54,14 @@
    editor
    & {:keys [dump-selections insertion-kind]
       :or {dump-selections true insertion-kind :prepend}}]
-  (-> state
-      (#(if dump-selections
-          (dump-drop-selections! % editor (.getDocument editor))
-          %))
-      (assoc :mode :insert
-             :debounce true
-             :insertion-kind insertion-kind
-             :prefix nil
-             :mark-action (start-undo project editor))))
+  (let [pre-selections (when dump-selections (dump-drop-selections! editor (.getDocument editor)))]
+    (-> state
+        (assoc-in [:per-editor editor :mark-action] (start-undo project editor))
+        (assoc-in [:per-editor editor :pre-selections] pre-selections)
+        (assoc :mode :insert
+               :debounce true
+               :insertion-kind insertion-kind
+               :prefix nil))))
 
 
 (defkeymap
@@ -72,7 +72,7 @@
       "Back to normal mode"
       [state project editor document]
       (if (= :insert (:mode state))
-        (quit-insert-mode project state editor document)
+        (quit-insert-mode project state document)
         (assoc state :mode :normal :prefix nil :pre-selections nil :insertion-kind nil))))
 
   (:find-char
@@ -527,15 +527,18 @@
         debounce (:debounce project-state)
         result-fn (partial editor-handler project project-state editor event)
         result
-        (if (= mode :insert)
-          (cond
-            (= (.getKeyCode event) KeyEvent/VK_ESCAPE) (result-fn)
-            (and debounce (= (.getID event) KeyEvent/KEY_TYPED))
-            (assoc project-state :debounce false)
-            :else :pass)
-          (if (= (.getID event) KeyEvent/KEY_PRESSED)
-            (result-fn)
-            nil))]
+        (try
+          (if (= mode :insert)
+            (cond
+              (= (.getKeyCode event) KeyEvent/VK_ESCAPE) (result-fn)
+              (and debounce (= (.getID event) KeyEvent/KEY_TYPED))
+              (assoc project-state :debounce false)
+              :else :pass)
+            (if (= (.getID event) KeyEvent/KEY_PRESSED)
+              (result-fn)
+              nil))
+          (catch StartMarkAction$AlreadyStartedException _
+            (quit-insert-mode project project-state (.getDocument editor))))]
     (cond
       (= :pass result) false
       (map? result) (do

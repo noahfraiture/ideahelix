@@ -58,15 +58,15 @@
                        (delete-selection-contents document)
                        (ihx-apply-selection! document))
                    text)))
-        editor-state (dump-drop-selections! (get project-state editor) editor document)]
+        pre-selections (dump-drop-selections! editor document)]
     (-> project-state
         (assoc-in [:registers register] register-contents)
-        (assoc editor editor-state)
-        (assoc-in [editor :mode] :insert)
-        (assoc-in [editor :insertion-kind] :prepend)
-        (assoc-in [editor :prefix] nil)
-        (assoc-in [editor :mark-action] start)
-        (assoc-in [editor :debounce] true))))
+        (assoc-in [:per-editor editor :pre-selections] pre-selections)
+        (assoc-in [:per-editor editor :mark-action] start)
+        (assoc :mode :insert)
+        (assoc :insertion-kind :prepend)
+        (dissoc :prefix)
+        (assoc :debounce true))))
 
 
 (defn delete-selections
@@ -82,4 +82,4 @@
                    text)))]
     (-> project-state
         (assoc-in [:registers register] register-contents)
-        (assoc-in [editor :prefix] nil))))
+        (assoc :prefix nil))))

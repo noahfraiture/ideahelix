@@ -330,17 +330,17 @@
 
 
 (defn dump-drop-selections!
-  [state editor document]
+  [editor document]
   (let [carets (.. editor getCaretModel getAllCarets)
         ihx-selections (doall (map (partial ihx-selection document) carets))]
     (doseq [caret carets
             :let [offset (.getOffset caret)]]
       (.setSelection caret offset offset))
-    (assoc state :pre-selections ihx-selections)))
+    ihx-selections))
 
 
 (defn- restore-saved-selections
-  [document {:keys [pre-selections insertion-kind]} carets]
+  [pre-selections insertion-kind document carets]
   (when-not (empty? pre-selections)
     (let [delta (- (.getOffset (first carets)) (:offset (first pre-selections))
                    (if (= insertion-kind :append) 1 0))
@@ -364,15 +364,14 @@
 
 
 (defn restore-selections
-  [{:keys [pre-selections] :as state} editor document]
+  [pre-selections insertion-kind editor document]
   (let [carets (.. editor getCaretModel getAllCarets)
         saved-carets (into #{} (map :caret pre-selections))
         free-carets (filter (complement saved-carets) carets)]
-    (restore-saved-selections document state carets)
+    (restore-saved-selections pre-selections insertion-kind document carets)
     (doseq [caret free-carets]
       (-> (ihx-selection document caret)
-          (ihx-apply-selection! document))))
-  (dissoc state :pre-selections :insertion-kind))
+          (ihx-apply-selection! document)))))
 
 
 (defn find-next-occurrence
