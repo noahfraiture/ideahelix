@@ -380,16 +380,18 @@
 
 
 (defn find-char
-  [^Document document caret ^Character char & {:keys [include expand]
-                                               :or {include false
-                                                    expand false}}]
+  [state editor ^Document document ^Character char & {:keys [include]
+                                                      :or {include false}}]
   (when (or (Character/isLetterOrDigit char)
             ((into #{} "!@#$%^&*()_+-={}[]|;:<>.,?~`") char))
-    (let [text (.getCharsSequence document)
-          len (.length text)]
-      (when-let [delta (find-next-occurrence (.subSequence text (+ 2 (.getOffset caret)) len) char)]
-        (cond-> (ihx-selection document caret)
-          (not expand) (ihx-shrink-selection)
-          true (ihx-move-forward (inc delta))
-          include (ihx-move-forward 1)
-          true (ihx-apply-selection! document))))))
+    (doseq [caret (.. editor getCaretModel getAllCarets)]
+      (let [text (.getCharsSequence document)
+            len (.length text)
+            expand (= (:previous-mode state) :select)]
+        (when-let [delta (find-next-occurrence (.subSequence text (+ 2 (.getOffset caret)) len) char)]
+          (cond-> (ihx-selection document caret)
+            (not expand) (ihx-shrink-selection)
+            true (ihx-move-forward (inc delta))
+            include (ihx-move-forward 1)
+            true (ihx-apply-selection! document)))))
+    (assoc state :mode (:previous-mode state))))

@@ -80,12 +80,9 @@
         (assoc state :mode :normal :prefix nil :pre-selections nil :insertion-kind nil))))
 
   (:find-char
-    (_ [state document caret char]
-       (let [prev-mode (:previous-mode state)
-             include (:find-char-include state)
-             expand (= prev-mode :select)]
-         (find-char document caret char :expand expand :include include))
-       [state] (assoc state :mode (:previous-mode state))))
+    (_ [state editor document char event]
+       (let [include (:find-char-include state)]
+         (find-char state editor document char :include include))))
 
   ((:or :normal :select)
    (\space
@@ -558,8 +555,9 @@
             (if (= (.getID event) KeyEvent/KEY_PRESSED)
               (result-fn)
               nil))
-          (catch StartMarkAction$AlreadyStartedException _
-            (quit-insert-mode project project-state (.getDocument editor))))]
+          (catch StartMarkAction$AlreadyStartedException e
+            (quit-insert-mode project project-state (.getDocument editor))
+            (throw e)))]
     (cond
       (:pass result) false
       (map? result) (do
