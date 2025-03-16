@@ -51,6 +51,7 @@
 ;; One of possible dependencies of the statement to expect.
 (s/def ::dep
   (s/or :char (partial = 'char) ; typed character
+        :event (partial = 'event) ; keyboard event that triggered this handler
         :editor (partial = 'editor) ; editor in focus
         :state (partial = 'state) ; ideahelix->project state
         :document (partial = 'document) ; document instance running in the editor
@@ -148,6 +149,7 @@
         (into [] (mapcat
                    (fn [[kw sym]]
                      [sym (case kw
+                            :event event
                             :state project-state
                             :project project
                             :document `(.getDocument ~editor)

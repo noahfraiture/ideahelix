@@ -13,6 +13,10 @@
     [fominok.ideahelix.editor.util :refer [get-editor-height]]
     [fominok.ideahelix.keymap :refer [defkeymap]])
   (:import
+    (com.intellij.codeInsight.lookup
+      LookupManager)
+    (com.intellij.codeInsight.lookup.impl
+      LookupImpl)
     (com.intellij.ide.actions.searcheverywhere
       SearchEverywhereManager)
     (com.intellij.openapi.actionSystem
@@ -40,7 +44,7 @@
         1))))
 
 
-(defn- quit-insert-mode
+(defn quit-insert-mode
   [project state document]
   (doseq [[editor {:keys [mark-action pre-selections]}] (:per-editor state)]
     (restore-selections pre-selections (:insertion-kind state) editor document)
@@ -517,7 +521,24 @@
     (\o
       [editor] (actions editor "UnsplitAll")
       [state] (assoc state :mode :normal))
-    (_ [state] (assoc state :mode :normal))))
+    (_ [state] (assoc state :mode :normal)))
+
+  (:insert
+    ((:or (:ctrl \n) (:ctrl \u000e))
+     "Select next completion item"
+     [state editor event]
+     (when (= (.getID event) KeyEvent/KEY_PRESSED)
+       (when-let [^LookupImpl lookup (LookupManager/getActiveLookup editor)]
+         (.setSelectedIndex lookup (inc (.getSelectedIndex lookup)))
+         state)))
+    ((:or (:ctrl \p) (:ctrl \u0010))
+     "Select next completion item"
+     [state editor event]
+     (when (= (.getID event) KeyEvent/KEY_PRESSED)
+       (when-let [^LookupImpl lookup (LookupManager/getActiveLookup editor)]
+         (.setSelectedIndex lookup (dec (.getSelectedIndex lookup)))
+         state)))
+    (_ [state] (assoc state :pass true))))
 
 
 (defn handle-editor-event
@@ -533,14 +554,14 @@
               (= (.getKeyCode event) KeyEvent/VK_ESCAPE) (result-fn)
               (and debounce (= (.getID event) KeyEvent/KEY_TYPED))
               (assoc project-state :debounce false)
-              :else :pass)
+              :else (result-fn))
             (if (= (.getID event) KeyEvent/KEY_PRESSED)
               (result-fn)
               nil))
           (catch StartMarkAction$AlreadyStartedException _
             (quit-insert-mode project project-state (.getDocument editor))))]
     (cond
-      (= :pass result) false
+      (:pass result) false
       (map? result) (do
                       (.consume event)
                       (let [new-state (merge project-state result)]

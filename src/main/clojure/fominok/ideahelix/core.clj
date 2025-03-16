@@ -5,7 +5,7 @@
 (ns fominok.ideahelix.core
   (:require
     [cider.nrepl :refer (cider-nrepl-handler)]
-    [fominok.ideahelix.editor :refer [handle-editor-event state-atom]]
+    [fominok.ideahelix.editor :refer [handle-editor-event state-atom quit-insert-mode]]
     [fominok.ideahelix.editor.selection :refer :all]
     [fominok.ideahelix.editor.ui :as ui]
     [nrepl.server :refer [start-server]])
@@ -51,6 +51,12 @@
           (runForEachCaret (fn [caret]
                              (-> (ihx-selection document caret)
                                  (ihx-apply-selection! document))))))))
+
+
+(defn focus-lost
+  [project ^Editor editor]
+  (let [state (or (get @state-atom project) {:mode :normal})]
+    (quit-insert-mode project state (.getDocument editor))))
 
 
 (defonce -server (start-server :port 7888 :handler cider-nrepl-handler))

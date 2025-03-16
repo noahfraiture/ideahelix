@@ -27,6 +27,7 @@ class Init : ProjectActivity {
     override suspend fun execute(project: Project) {
         val pushEvent: IFn
         val focusEditor: IFn
+        val focusLost: IFn
 
         // Per https://plugins.jetbrains.com/docs/intellij/plugin-class-loaders.html#using-serviceloader:
         val currentThread = Thread.currentThread()
@@ -40,6 +41,7 @@ class Init : ProjectActivity {
 
             pushEvent = Clojure.`var`("fominok.ideahelix.core", "push-event") as IFn
             focusEditor = Clojure.`var`("fominok.ideahelix.core", "focus-editor") as IFn
+            focusLost = Clojure.`var`("fominok.ideahelix.core", "focus-lost") as IFn
         } finally {
             currentThread.contextClassLoader = originalClassLoader
         }
@@ -70,6 +72,13 @@ class Init : ProjectActivity {
                 super.focusGained(editor)
                 applicationManager.invokeLater({
                     focusEditor.invoke(project, editor)
+                })
+            }
+
+            override fun focusLost(editor: Editor) {
+                super.focusLost(editor)
+                applicationManager.invokeLater({
+                    focusLost.invoke(project, editor)
                 })
             }
         }, project)
