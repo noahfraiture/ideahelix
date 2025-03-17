@@ -548,7 +548,10 @@
         (try
           (if (= mode :insert)
             (cond
-              (= (.getKeyCode event) KeyEvent/VK_ESCAPE) (result-fn)
+              (and (= (.getID event) KeyEvent/KEY_PRESSED)
+                   (= (.getKeyCode event) KeyEvent/VK_ESCAPE)) (result-fn)
+              (and (not= (.getID event) KeyEvent/KEY_PRESSED)
+                   (= (.getKeyCode event) KeyEvent/VK_ESCAPE)) nil
               (and debounce (= (.getID event) KeyEvent/KEY_TYPED))
               (assoc project-state :debounce false)
               :else (result-fn))

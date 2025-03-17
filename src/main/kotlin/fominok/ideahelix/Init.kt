@@ -75,12 +75,12 @@ class Init : ProjectActivity {
                 })
             }
 
-            override fun focusLost(editor: Editor) {
+            /*override fun focusLost(editor: Editor) {
                 super.focusLost(editor)
                 applicationManager.invokeLater({
                     focusLost.invoke(project, editor)
                 })
-            }
+            }*/
         }, project)
 
 

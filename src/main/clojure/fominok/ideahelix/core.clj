@@ -23,10 +23,11 @@
 
 (defn push-event
   [project focus-owner event]
-  (condp instance? focus-owner
-    EditorComponentImpl
-    (handle-editor-event project (.getEditor ^EditorComponentImpl focus-owner) event)
-    false))
+  (boolean
+    (when (instance? EditorComponentImpl focus-owner)
+      (let [editor (.getEditor ^EditorComponentImpl focus-owner)]
+        (when-not (.isOneLineMode editor)
+          (handle-editor-event project editor event))))))
 
 
 (defn- caret-listener
@@ -53,10 +54,10 @@
                                  (ihx-apply-selection! document))))))))
 
 
-(defn focus-lost
-  [project ^Editor editor]
-  (let [state (or (get @state-atom project) {:mode :normal})]
-    (quit-insert-mode project state (.getDocument editor))))
+#_(defn focus-lost
+    [project ^Editor editor]
+    (let [state (or (get @state-atom project) {:mode :normal})]
+      (quit-insert-mode project state (.getDocument editor))))
 
 
 (defonce -server (start-server :port 7888 :handler cider-nrepl-handler))

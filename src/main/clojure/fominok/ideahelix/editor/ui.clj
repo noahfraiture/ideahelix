@@ -4,7 +4,8 @@
 
 (ns fominok.ideahelix.editor.ui
   (:require
-    [clojure.string :as str])
+    [clojure.string :as str]
+    [fominok.ideahelix.editor.util :refer [when-let*]])
   (:import
     (com.intellij.openapi.editor
       CaretVisualAttributes
@@ -20,16 +21,16 @@
 (defn update-mode-panel!
   [project editor-state]
   (let [id (ModePanel/ID)
-        status-bar (.. WindowManager getInstance (getStatusBar project))
-        widget (.getWidget status-bar id)
         mode-text (str/upper-case (name (or (:mode editor-state)
                                             :normal)))
         widget-text
         (str
           (when-let [prefix (:prefix editor-state)] (format "(%s) " (apply str prefix)))
           mode-text)]
-    (.setText widget widget-text)
-    (.updateWidget status-bar id)))
+    (when-let* [status-bar (.. WindowManager getInstance (getStatusBar project))
+                widget (.getWidget status-bar id)]
+               (.setText widget widget-text)
+               (.updateWidget status-bar id))))
 
 
 (defn highlight-primary-caret
