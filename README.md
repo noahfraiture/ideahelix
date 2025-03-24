@@ -34,6 +34,9 @@ tooling provided by JetBrains and the editing model of Helix.
   it likely doesn't follow plugin development best practices. Reaching ~150k lines while
   pursuing those, as IdeaVim does, is something to avoid. Contributions are welcome, as
   basic compatibility or UX improvements are always possible without overdoing it.
+- **Mouse/Menu interactions**: The primary focus is on keyboard interactions. While
+  executing actions through other means is supported, there are no guarantees that carets
+  or selections will behave in a specific manner.
 
 ## Emulating Helix Carets
 

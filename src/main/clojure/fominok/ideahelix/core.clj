@@ -54,10 +54,4 @@
                                  (ihx-apply-selection! document))))))))
 
 
-#_(defn focus-lost
-    [project ^Editor editor]
-    (let [state (or (get @state-atom project) {:mode :normal})]
-      (quit-insert-mode project state (.getDocument editor))))
-
-
 (defonce -server (start-server :port 7888 :handler cider-nrepl-handler))

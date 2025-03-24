@@ -20,6 +20,13 @@ import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiNamedElement
+import com.intellij.refactoring.rename.RenameDialog
+import com.intellij.refactoring.rename.RenameHandler
+import com.intellij.refactoring.rename.RenameHandlerRegistry
+import com.intellij.refactoring.rename.RenameProcessor
+import com.intellij.refactoring.rename.RenamePsiElementProcessor
 import java.awt.KeyboardFocusManager
 import java.awt.event.KeyEvent
 
@@ -27,7 +34,6 @@ class Init : ProjectActivity {
     override suspend fun execute(project: Project) {
         val pushEvent: IFn
         val focusEditor: IFn
-        val focusLost: IFn
 
         // Per https://plugins.jetbrains.com/docs/intellij/plugin-class-loaders.html#using-serviceloader:
         val currentThread = Thread.currentThread()
@@ -41,7 +47,6 @@ class Init : ProjectActivity {
 
             pushEvent = Clojure.`var`("fominok.ideahelix.core", "push-event") as IFn
             focusEditor = Clojure.`var`("fominok.ideahelix.core", "focus-editor") as IFn
-            focusLost = Clojure.`var`("fominok.ideahelix.core", "focus-lost") as IFn
         } finally {
             currentThread.contextClassLoader = originalClassLoader
         }
@@ -74,13 +79,6 @@ class Init : ProjectActivity {
                     focusEditor.invoke(project, editor)
                 })
             }
-
-            /*override fun focusLost(editor: Editor) {
-                super.focusLost(editor)
-                applicationManager.invokeLater({
-                    focusLost.invoke(project, editor)
-                })
-            }*/
         }, project)
 
 

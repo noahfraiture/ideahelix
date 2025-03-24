@@ -29,6 +29,12 @@
       ScrollType)
     (com.intellij.openapi.editor.impl
       EditorImpl)
+    (com.intellij.openapi.fileEditor
+      FileDocumentManager)
+    (com.intellij.psi
+      PsiManager)
+    (com.intellij.refactoring.rename
+      RenameDialog)
     (java.awt.event
       KeyEvent)))
 
@@ -484,6 +490,16 @@
             action-event (AnActionEvent/createFromDataContext
                            ActionPlaces/KEYBOARD_SHORTCUT nil data-context)]
         (.show manager "FileSearchEverywhereContributor" nil action-event)
+        (assoc state :mode :normal)))
+    (\r
+      "Rename symbol"
+      [project editor document state]
+      (let [file (.. FileDocumentManager getInstance (getFile document))
+            psi-file (.. PsiManager (getInstance project) (findFile file))
+            element (.getParent (.findElementAt psi-file (.. editor getCaretModel getOffset)))
+            data-context (.getDataContext editor)
+            dialog (RenameDialog. project element nil editor)]
+        (RenameDialog/showRenameDialog data-context dialog)
         (assoc state :mode :normal)))
     (\/
       "Global search"
