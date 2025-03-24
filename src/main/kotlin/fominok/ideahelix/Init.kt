@@ -10,6 +10,7 @@ import clojure.java.api.Clojure
 import clojure.lang.IFn
 import com.intellij.ide.IdeEventQueue
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.ex.EditorEventMulticasterEx
@@ -20,13 +21,6 @@ import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.PsiFile
-import com.intellij.psi.PsiNamedElement
-import com.intellij.refactoring.rename.RenameDialog
-import com.intellij.refactoring.rename.RenameHandler
-import com.intellij.refactoring.rename.RenameHandlerRegistry
-import com.intellij.refactoring.rename.RenameProcessor
-import com.intellij.refactoring.rename.RenamePsiElementProcessor
 import java.awt.KeyboardFocusManager
 import java.awt.event.KeyEvent
 

@@ -23,6 +23,8 @@
       ActionPlaces
       AnActionEvent
       IdeActions)
+    (com.intellij.openapi.application
+      ReadAction)
     (com.intellij.openapi.command.impl
       StartMarkAction$AlreadyStartedException)
     (com.intellij.openapi.editor
@@ -31,6 +33,8 @@
       EditorImpl)
     (com.intellij.openapi.fileEditor
       FileDocumentManager)
+    (com.intellij.openapi.util
+      ThrowableComputable)
     (com.intellij.psi
       PsiManager)
     (com.intellij.refactoring.rename
@@ -494,9 +498,14 @@
     (\r
       "Rename symbol"
       [project editor document state]
-      (let [file (.. FileDocumentManager getInstance (getFile document))
-            psi-file (.. PsiManager (getInstance project) (findFile file))
-            element (.getParent (.findElementAt psi-file (.. editor getCaretModel getOffset)))
+      (let [element
+            (ReadAction/compute
+              (reify ThrowableComputable
+                (compute
+                  [_]
+                  (let [file (.. FileDocumentManager getInstance (getFile document))
+                        psi-file (.. PsiManager (getInstance project) (findFile file))]
+                    (.getParent (.findElementAt psi-file (.. editor getCaretModel getOffset)))))))
             data-context (.getDataContext editor)
             dialog (RenameDialog. project element nil editor)]
         (RenameDialog/showRenameDialog data-context dialog)
