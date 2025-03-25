@@ -23,22 +23,12 @@
       ActionPlaces
       AnActionEvent
       IdeActions)
-    (com.intellij.openapi.application
-      ReadAction)
     (com.intellij.openapi.command.impl
       StartMarkAction$AlreadyStartedException)
     (com.intellij.openapi.editor
       ScrollType)
     (com.intellij.openapi.editor.impl
       EditorImpl)
-    (com.intellij.openapi.fileEditor
-      FileDocumentManager)
-    (com.intellij.openapi.util
-      ThrowableComputable)
-    (com.intellij.psi
-      PsiManager)
-    (com.intellij.refactoring.rename
-      RenameDialog)
     (java.awt.event
       KeyEvent)))
 
@@ -498,17 +488,8 @@
     (\r
       "Rename symbol"
       [project editor document state]
-      (let [element
-            (ReadAction/compute
-              (reify ThrowableComputable
-                (compute
-                  [_]
-                  (let [file (.. FileDocumentManager getInstance (getFile document))
-                        psi-file (.. PsiManager (getInstance project) (findFile file))]
-                    (.getParent (.findElementAt psi-file (.. editor getCaretModel getOffset)))))))
-            data-context (.getDataContext editor)
-            dialog (RenameDialog. project element nil editor)]
-        (RenameDialog/showRenameDialog data-context dialog)
+      (do
+        (actions editor IdeActions/ACTION_RENAME)
         (assoc state :mode :normal)))
     (\/
       "Global search"

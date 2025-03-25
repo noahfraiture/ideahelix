@@ -10,10 +10,10 @@ import clojure.java.api.Clojure
 import clojure.lang.IFn
 import com.intellij.ide.IdeEventQueue
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.ex.EditorEventMulticasterEx
+import com.intellij.openapi.editor.ex.EditorSettingsExternalizable
 import com.intellij.openapi.editor.ex.FocusChangeListener
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
@@ -28,6 +28,11 @@ class Init : ProjectActivity {
     override suspend fun execute(project: Project) {
         val pushEvent: IFn
         val focusEditor: IFn
+
+        val settings = EditorSettingsExternalizable.getInstance()
+        ApplicationManager.getApplication().invokeAndWait {
+            settings.isVariableInplaceRenameEnabled = false;
+        }
 
         // Per https://plugins.jetbrains.com/docs/intellij/plugin-class-loaders.html#using-serviceloader:
         val currentThread = Thread.currentThread()
