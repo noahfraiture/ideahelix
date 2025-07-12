@@ -270,6 +270,30 @@
   [editor]
   (.. editor getScrollingModel (scrollToCaret ScrollType/RELATIVE)))
 
+(defn find-next-occurrence
+  [^CharSequence text {:keys [pos neg]}]
+  (first (keep-indexed #(when (or
+                               (contains? pos %2)
+                               (not (or (nil? neg) (contains? neg %2))))
+                          %1) text)))
+
+(defn find-char
+  [state editor ^Document document char & {:keys [include]
+                                           :or {include false}}]
+  (when
+   (or (Character/isLetterOrDigit char) ((into #{} "!@#$%^&*()_+-={}[]|;:<>.,?~`") char))
+    (doseq [caret (.. editor getCaretModel getAllCarets)]
+      (let [text (.getCharsSequence document)
+            len (.length text)
+            expand (= (:previous-mode state) :select)
+            sub (.subSequence text (+ 2 (.getOffset caret)) len)]
+        (when-let [delta (find-next-occurrence sub {:pos #{char}})]
+          (cond-> (ihx-selection document caret)
+            (not expand) (ihx-shrink-selection)
+            true (ihx-move-forward (inc delta))
+            include (ihx-move-forward 1)
+            true (ihx-apply-selection! document)))))
+    (assoc state :mode (:previous-mode state))))
 
 ;; This modifies the caret
 (defn ihx-word-forward-extending!
@@ -387,26 +411,3 @@
     (doseq [caret free-carets]
       (-> (ihx-selection document caret)
           (ihx-apply-selection! document)))))
-
-
-(defn find-next-occurrence
-  [^CharSequence text char-to-find]
-  (first (keep-indexed #(when (= %2 char-to-find) %1) text)))
-
-
-(defn find-char
-  [state editor ^Document document ^Character char & {:keys [include]
-                                                      :or {include false}}]
-  (when (or (Character/isLetterOrDigit char)
-            ((into #{} "!@#$%^&*()_+-={}[]|;:<>.,?~`") char))
-    (doseq [caret (.. editor getCaretModel getAllCarets)]
-      (let [text (.getCharsSequence document)
-            len (.length text)
-            expand (= (:previous-mode state) :select)]
-        (when-let [delta (find-next-occurrence (.subSequence text (+ 2 (.getOffset caret)) len) char)]
-          (cond-> (ihx-selection document caret)
-            (not expand) (ihx-shrink-selection)
-            true (ihx-move-forward (inc delta))
-            include (ihx-move-forward 1)
-            true (ihx-apply-selection! document)))))
-    (assoc state :mode (:previous-mode state))))
