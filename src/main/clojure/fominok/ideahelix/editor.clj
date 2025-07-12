@@ -275,6 +275,13 @@
         (-> (ihx-selection document caret)
             (ihx-word-forward! editor)
             (ihx-apply-selection! document))))
+    (\e
+      "Select word end" :scroll
+      [state editor document caret]
+      (dotimes [_ (get-prefix state)]
+        (-> (ihx-selection document caret)
+            (ihx-word-end! editor)
+            (ihx-apply-selection! document))))
     (\b
       "Select word backward" :scroll
       [state document editor caret]
@@ -350,6 +357,13 @@
       (dotimes [_ (get-prefix state)]
         (-> (ihx-selection document caret)
             (ihx-word-forward-extending! editor)
+            (ihx-apply-selection! document))))
+    (\e
+      "Select word end extending" :scroll
+      [state document editor caret]
+      (dotimes [_ (get-prefix state)]
+        (-> (ihx-selection document caret)
+            (ihx-word-end-extending! editor)
             (ihx-apply-selection! document))))
     (\b
       "Select word backward extending" :scroll
