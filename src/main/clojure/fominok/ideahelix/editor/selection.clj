@@ -392,6 +392,26 @@
       (assoc new-selection :anchor (max 0 (dec (.getOffset caret))))
       new-selection)))
 
+(defn ihx-long-word-backward!
+  [{:keys [_ offset] :as selection} document extending?]
+  (let [text (-> (.getCharsSequence document) (.subSequence 0 offset) StringBuilder. .reverse)
+        blank-chars (set " \t\n\r")
+        len (.length text)
+        start (cond-> 1
+                (and
+                 (not (contains? blank-chars (.charAt text 0)))
+                 (contains? blank-chars (.charAt text 1)))
+                inc
+                (= \newline (.charAt text 1))
+                (+ 2))
+        sub (.subSequence text start len)
+        end-offset (+ start (or (find-next-occurrence sub {:pos #{\newline} :neg blank-chars}) (.length sub)))
+        sub (.subSequence text end-offset len)
+        end-offset (+ end-offset (or (find-next-occurrence sub {:pos blank-chars}) (.length sub)))
+        end-offset (dec end-offset)]
+    (if extending?
+      (assoc selection :offset (- offset end-offset 1))
+      (assoc selection :offset (- offset end-offset 1) :anchor (- offset start)))))
 
 (defn ihx-move-caret-line-n
   [editor document n]
