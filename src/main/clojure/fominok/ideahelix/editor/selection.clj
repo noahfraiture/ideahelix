@@ -313,6 +313,29 @@
         (assoc selection :offset (max 0 (dec (.getOffset caret))) :anchor new-offset))
       (assoc selection :offset (max 0 (dec new-offset)) :anchor offset))))
 
+(defn ihx-long-word-forward!
+  [{:keys [_ offset] :as selection} document extending?]
+  (let [text (.getCharsSequence document)
+        blank-chars (set " \t\n\r")
+        len (.length text)
+        offset (cond-> offset
+                 ; if we are at space right before a word, we shift the offset
+                 (and
+                  (contains? blank-chars (.charAt text offset))
+                  (not (contains? blank-chars (.charAt text (inc offset)))))
+                 inc
+                 ; if we are at the end of the line, we skip to next line
+                 (= \newline (.charAt text (inc offset)))
+                 (+ 2))
+        sub (.subSequence text offset len)
+        end-offset (+ offset (or (find-next-occurrence sub {:pos blank-chars}) (.length sub)))
+        sub (.subSequence text end-offset len)
+        end-offset (+ end-offset (or (find-next-occurrence sub {:pos #{} :neg (set " \t")}) (.length sub)))
+        end-offset (dec end-offset)]
+    (if extending?
+      (assoc selection :offset end-offset)
+      (assoc selection :offset end-offset :anchor offset))))
+
 (defn ihx-word-end-extending!
   [{:keys [caret] :as selection} editor]
   (.moveCaretRelatively caret 1 0 false false)
