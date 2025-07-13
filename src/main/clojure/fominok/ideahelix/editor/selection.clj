@@ -279,7 +279,6 @@
   (let [new-offset (max 0 (dec (.getOffset caret)))]
     (assoc selection :offset new-offset)))
 
-
 (defn ihx-word-forward!
   [{:keys [caret offset] :as selection} editor]
   (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_START false true)
@@ -290,6 +289,22 @@
         (assoc selection :offset (max 0 (dec (.getOffset caret))) :anchor new-offset))
       (assoc selection :offset (max 0 (dec new-offset)) :anchor offset))))
 
+(defn ihx-word-end-extending!
+  [{:keys [caret] :as selection} editor]
+  (.moveCaretRelatively caret 1 0 false false)
+  (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_END false true)
+  (let [new-offset (max 0 (dec (.getOffset caret)))]
+    (assoc selection :offset new-offset)))
+
+(defn ihx-word-end!
+  [{:keys [caret offset] :as selection} editor]
+  (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_END false true)
+  (let [new-offset (.getOffset caret)]
+    (if (= new-offset (inc offset))
+      (do
+        (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_END false true)
+        (assoc selection :offset (max 0 (dec (.getOffset caret))) :anchor new-offset))
+      (assoc selection :offset (max 0 (dec new-offset)) :anchor offset))))
 
 (defn ihx-word-backward-extending!
   [{:keys [caret] :as selection} editor]
