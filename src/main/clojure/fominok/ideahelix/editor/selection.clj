@@ -492,15 +492,10 @@
 (defn next-match
   [project text offset opener target]
   (loop [to-find 1 text (.subSequence text offset (.length text)) acc-offset offset]
-    (let [target-offset (find-next-occurrence text {:pos #{opener target}})
+    (let [target-offset (find-next-occurrence text {:pos (set [opener target])})
           found (.charAt text target-offset)
           text (.subSequence text (inc target-offset) (.length text))
           acc-offset (inc acc-offset)]
-      (Messages/showInputDialog
-       project
-       "select:"
-       "Select in selections"
-       (Messages/getQuestionIcon))
       (if (= found target) ; must check first if we found match in case match = char
         (if (= to-find 1)
           (+ acc-offset target-offset -1)
