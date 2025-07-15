@@ -3,6 +3,7 @@
 ;; file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 (ns fominok.ideahelix.editor.selection
+  (:require [fominok.ideahelix.editor.util :refer [printable-char?]])
   (:import
     (com.intellij.openapi.editor
       Document
@@ -18,7 +19,6 @@
       Project)
     (com.intellij.openapi.ui
       Messages)))
-
 
 ;; Instead of counting positions between characters this wrapper
 ;; speaks in character indices, at least because when selection is getting
@@ -411,3 +411,67 @@
     (doseq [caret free-carets]
       (-> (ihx-selection document caret)
           (ihx-apply-selection! document)))))
+
+(def char-match
+  {\( {:match \) :direction :open}
+   \) {:match \( :direction :close}
+   \[ {:match \] :direction :open}
+   \] {:match \[ :direction :close}
+   \{ {:match \} :direction :open}
+   \} {:match \{ :direction :close}
+   \< {:match \> :direction :open}
+   \> {:match \< :direction :close}})
+
+(defn next-match
+  [text offset opener target]
+  (loop [to-find 1 text (.subSequence text offset (.length text)) acc-offset offset]
+    (let [target-offset (find-next-occurrence text {:pos (set [opener target])})
+          found (.charAt text target-offset)
+          text (.subSequence text (inc target-offset) (.length text))
+          acc-offset (inc acc-offset)]
+      (if (= found target) ; must check first if we found match in case match = char
+        (if (= to-find 1)
+          (+ acc-offset target-offset -1)
+          (recur (dec to-find) text (+ acc-offset target-offset)))
+        (recur (inc to-find) text (+ acc-offset target-offset))))))
+
+(defn previous-match
+  [text offset opener target]
+  (let [len (.length text)
+        idx (- len offset 1)
+        text (-> (StringBuilder. text) .reverse)
+        res (next-match text idx opener target)]
+    (- len res 1)))
+
+(defn get-open-close-chars [char]
+  (let [match-info (get char-match char)]
+    (cond (nil? match-info) {:open-char char :close-char char}
+          (= (:direction match-info) :open) {:open-char char :close-char (:match match-info)}
+          :else {:open-char (:match match-info) :close-char char})))
+
+(defn ihx-surround-delete
+  [{:keys [offset anchor] :as selection} document char]
+  (when (printable-char? char)
+    (let [text (.getCharsSequence document)
+          {:keys [open-char close-char]} (get-open-close-chars char)
+          curr-char (.charAt text offset)
+          left (previous-match text offset close-char open-char)
+          right (next-match text offset open-char close-char)]
+      (if (and (not= open-char curr-char) (not= close-char curr-char))
+        (do (.deleteString document right (inc right))
+            (.deleteString document left (inc left))
+            (assoc selection :offset (dec offset) :anchor (if
+                                                           (> anchor left)
+                                                            (dec anchor)
+                                                            anchor)))
+        (cond
+          (= open-char close-char) nil
+          (= open-char curr-char) (do (.deleteString document right (inc right))
+                                      (.deleteString document left (inc left))
+                                      (assoc selection :offset offset :anchor (if
+                                                                               (> anchor offset)
+                                                                                (dec anchor)
+                                                                                anchor)))
+          (= close-char curr-char) (do (.deleteString document right (inc right))
+                                       (.deleteString document left (inc left))
+                                       (assoc selection :offset offset :anchor (dec anchor))))))))
