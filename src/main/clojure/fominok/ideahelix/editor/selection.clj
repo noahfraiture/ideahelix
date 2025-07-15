@@ -17,12 +17,7 @@
     (com.intellij.openapi.project
       Project)
     (com.intellij.openapi.ui
-      Messages)
-    (com.intellij.psi
-      PsiDocumentManager)
-    (com.intellij.codeInsight.highlighting
-      BraceMatchingUtil)
-      ))
+      Messages)))
 
 ;; Instead of counting positions between characters this wrapper
 ;; speaks in character indices, at least because when selection is getting
@@ -495,76 +490,63 @@
   })
 
 (defn next-match
-  [text offset char match]
-  (loop [to-find 0 text (.subSequence text offset (.length text)) acc offset]
-    (let [idx-match (find-next-occurrence text {:pos #{char match}})
-          found (.charAt text idx-match)
-          text (.subSequence text (inc idx-match) (.length text))
-          acc (inc acc)]
-      (if (= found match) ; must check first if we found match in case match = char
+  [project text offset opener target]
+  (loop [to-find 1 text (.subSequence text offset (.length text)) acc-offset offset]
+    (let [target-offset (find-next-occurrence text {:pos #{opener target}})
+          found (.charAt text target-offset)
+          text (.subSequence text (inc target-offset) (.length text))
+          acc-offset (inc acc-offset)]
+      (Messages/showInputDialog
+       project
+       "select:"
+       "Select in selections"
+       (Messages/getQuestionIcon))
+      (if (= found target) ; must check first if we found match in case match = char
         (if (= to-find 1)
-          (+ acc idx-match -1)
-          (recur (dec to-find) text (+ acc idx-match)))
-        (recur (inc to-find) text (+ acc idx-match))))))
+          (+ acc-offset target-offset -1)
+          (recur (dec to-find) text (+ acc-offset target-offset)))
+        (recur (inc to-find) text (+ acc-offset target-offset))))))
 
 (defn previous-match
-  [text offset char match]
+  [project text offset opener target]
   (let [len (.length text)
         idx (- len offset 1)
         text (-> (StringBuilder. text) .reverse)
-        res (next-match text idx char match)]
+        res (next-match project text idx opener target)]
     (- len res 1)))
 
 ; todo : if no match
 (defn ihx-goto-matching
-  [{:keys [_ offset] :as selection} project document editor]
+  [{:keys [_ offset] :as selection} project document]
   (let [text (.getCharsSequence document)
-        char (.charAt text offset)
-        doc-manager (PsiDocumentManager/getInstance project)
-        file (.getPsiFile doc-manager document)
-        match (:match (get char-match char))]
-    (when (contains? char-match char)
-      (let [direction (:direction (get char-match char))
+        opener (.charAt text offset)
+        target (:match (get char-match opener))]
+    (when (contains? char-match opener)
+      (let [direction (:direction (get char-match opener))
             offset (case direction
-                     :open (BraceMatchingUtil/getMatchedBraceOffset editor true file)
-                     :close (BraceMatchingUtil/getMatchedBraceOffset editor false file))]
-        (assoc selection :offset offset))
+                     :open (next-match project text (inc offset) opener target)
+                     :close (previous-match project text (dec offset) opener target))]
+        (assoc selection :offset offset)))))
 
-      ; (let [offset-forward (try
-      ;                        (next-match text offset char match)
-      ;                        (catch Exception _ nil))
-      ;       offset-backward (try
-      ;                         (previous-match text offset char match)
-      ;                         (catch Exception _ nil))]
-      ;   (cond
-      ;     (and offset-backward offset-forward)
-      ;     (assoc selection :offset (if
-      ;                               (< (abs (- offset-backward offset)) (- offset-forward offset))
-      ;                                offset-forward offset-backward))
-      ;     (and (nil? offset-backward) offset-forward) (assoc selection :offset offset-forward)
-      ;     (and offset-backward (nil? offset-forward)) (assoc selection :offset offset-backward)
-      ;     (and (nil? offset-backward) (nil? offset-forward)) ()))
-
-          )))
+; todo : get when on it
+(defn find-matches
+  [{:keys [_ offset]} project document char]
+  (let [match-info (get char-match char)
+        [open-char close-char] (cond
+                                 (nil? match-info) [char char]
+                                 (= (:direction match-info) :open) [char (:match match-info)]
+                                 :else [(:match match-info) char])
+        text (.getCharsSequence document)
+        left-offset (previous-match project text offset close-char open-char)
+        right-offset (next-match project text offset open-char close-char)]
+    {:left left-offset :right right-offset}))
 
 (defn ihx-select-inside
-  [{:keys [_ offset] :as selection} document char]
-  (let [text (.getCharsSequence document)
-        match (:match (get char-match char))
-        direction (:direction (get char-match char))
-        left-char (if (= direction :open) char match)
-        right-char (if (= direction :open) match char)
-        left-offset (previous-match text offset right-char left-char)
-        right-offset (next-match text offset left-char right-char)]
-    (assoc selection :offset left-offset :anchor right-offset)))
+  [selection project document char]
+  (let [matches (find-matches selection project document char)]
+  (assoc selection :offset (inc (:left matches)) :anchor (dec (:right matches)))))
 
 (defn ihx-select-around
-  [{:keys [_ offset] :as selection} document char]
-  (let [text (.getCharsSequence document)
-        match (:match (get char-match char))
-        direction (:direction (get char-match char))
-        left-char (if (= direction :open) char match)
-        right-char (if (= direction :open) match char)
-        left-offset (previous-match text offset right-char left-char)
-        right-offset (next-match text offset left-char right-char)]
-    (assoc selection :offset left-offset :anchor right-offset)))
+  [selection project document char]
+  (let [matches (find-matches selection project document char)]
+  (assoc selection :offset (:left matches) :anchor (:right matches))))
