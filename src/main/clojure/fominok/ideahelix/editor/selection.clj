@@ -19,7 +19,6 @@
     (com.intellij.openapi.ui
       Messages)))
 
-
 ;; Instead of counting positions between characters this wrapper
 ;; speaks in character indices, at least because when selection is getting
 ;; reversed on caret movement the pivot is a character in Helix rather than
@@ -411,3 +410,67 @@
     (doseq [caret free-carets]
       (-> (ihx-selection document caret)
           (ihx-apply-selection! document)))))
+
+(def char-match
+  {\( {:match \) :direction :open}
+   \) {:match \( :direction :close}
+   \[ {:match \] :direction :open}
+   \] {:match \[ :direction :close}
+   \{ {:match \} :direction :open}
+   \} {:match \{ :direction :close}
+   \< {:match \> :direction :open}
+   \> {:match \< :direction :close}})
+
+(defn next-match
+  [text offset opener target]
+  (loop [to-find 1 text (.subSequence text offset (.length text)) acc-offset offset]
+    (let [target-offset (find-next-occurrence text {:pos (set [opener target])})
+          found (.charAt text target-offset)
+          text (.subSequence text (inc target-offset) (.length text))
+          acc-offset (inc acc-offset)]
+      (if (= found target) ; must check first if we found match in case match = char
+        (if (= to-find 1)
+          (+ acc-offset target-offset -1)
+          (recur (dec to-find) text (+ acc-offset target-offset)))
+        (recur (inc to-find) text (+ acc-offset target-offset))))))
+
+(defn previous-match
+  [text offset opener target]
+  (let [len (.length text)
+        idx (- len offset 1)
+        text (-> (StringBuilder. text) .reverse)
+        res (next-match text idx opener target)]
+    (- len res 1)))
+
+(defn get-open-close-chars [char]
+  (let [match-info (get char-match char)]
+    (cond (nil? match-info) {:open-char char :close-char char}
+          (= (:direction match-info) :open) {:open-char char :close-char (:match match-info)}
+          :else {:open-char (:match match-info) :close-char char})))
+
+(defn find-matches
+  [{:keys [_ offset]} document char]
+  (let [{:keys [open-char close-char]} (get-open-close-chars char)
+        text (.getCharsSequence document)
+        curr-char (.charAt (.getCharsSequence document) offset)]
+    (if (and (not= open-char curr-char) (not= close-char curr-char))
+      {:left (previous-match text offset close-char open-char)
+       :right (next-match text offset open-char close-char)}
+      (cond
+        (= open-char close-char) nil
+        (= open-char curr-char) {:left offset
+                                 :right (next-match text (inc offset) open-char close-char)}
+        (= close-char curr-char) {:left (previous-match text (dec offset) close-char open-char)
+                                  :right offset}))))
+
+(defn ihx-select-inside
+  [selection document char]
+  (let [matches (find-matches selection document char)]
+    (when (not (nil? matches))
+      (assoc selection :offset (inc (:left matches)) :anchor (dec (:right matches))))))
+
+(defn ihx-select-around
+  [selection document char]
+  (let [matches (find-matches selection document char)]
+    (when (not (nil? matches))
+      (assoc selection :offset (:left matches) :anchor (:right matches)))))

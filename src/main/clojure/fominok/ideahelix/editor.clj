@@ -325,7 +325,10 @@
      (do (-> (ihx-move-caret-line-n editor document (get-prefix state))
              ihx-shrink-selection
              (ihx-apply-selection! document))
-         (assoc state :mode :normal))))
+         (assoc state :mode :normal)))
+   (\m
+     "Match menu"
+     [state] (assoc state :mode :match)))
 
   (:select
     (\g
@@ -403,7 +406,10 @@
      [state editor document]
      (do (-> (ihx-move-caret-line-n editor document (get-prefix state))
              (ihx-apply-selection! document))
-         (assoc state :mode :select))))
+         (assoc state :mode :select)))
+   (\m
+     "Match menu"
+     [state] (assoc state :mode :select-match)))
 
   (:goto
     (Character/isDigit
@@ -555,8 +561,55 @@
        (when-let [^LookupImpl lookup (LookupManager/getActiveLookup editor)]
          (.setSelectedIndex lookup (dec (.getSelectedIndex lookup)))
          state)))
-    (_ [state] (assoc state :pass true))))
+    (_ [state] (assoc state :pass true)))
 
+  (:match
+   (\i
+    [state] (assoc state :mode :match-inside))
+   (\a
+    [state] (assoc state :mode :match-around)))
+
+  (:select-match
+   (\i
+    [state] (assoc state :mode :select-match-inside))
+   (\a
+    [state] (assoc state :mode :select-match-around)))
+
+  (:match-inside
+   (_
+    "Select inside"
+    [project state document caret char]
+     (-> (ihx-selection document caret)
+         (ihx-select-inside document char)
+         (ihx-apply-selection! document))
+    [state] (assoc state :mode :normal)))
+
+  (:select-match-inside
+   (_
+    "Select inside"
+    [project state document caret char]
+     (-> (ihx-selection document caret)
+         (ihx-select-inside document char)
+         (ihx-apply-selection! document))
+    [state] (assoc state :mode :select)))
+
+  (:match-around
+   (_
+    "Select around"
+    [project state document caret char]
+     (-> (ihx-selection document caret)
+         (ihx-select-around document char)
+         (ihx-apply-selection! document))
+    [state] (assoc state :mode :normal)))
+
+  (:select-match-around
+   (_
+    "Select around"
+    [project state document caret char]
+     (-> (ihx-selection document caret)
+         (ihx-select-around document char)
+         (ihx-apply-selection! document))
+    [state] (assoc state :mode :select))))
 
 (defn handle-editor-event
   [project ^EditorImpl editor ^KeyEvent event]
