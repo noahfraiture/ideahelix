@@ -19,7 +19,6 @@
     (com.intellij.openapi.ui
       Messages)))
 
-
 ;; Instead of counting positions between characters this wrapper
 ;; speaks in character indices, at least because when selection is getting
 ;; reversed on caret movement the pivot is a character in Helix rather than
@@ -411,3 +410,46 @@
     (doseq [caret free-carets]
       (-> (ihx-selection document caret)
           (ihx-apply-selection! document)))))
+
+(def char-match
+  {\( {:match \) :direction :open}
+   \) {:match \( :direction :close}
+   \[ {:match \] :direction :open}
+   \] {:match \[ :direction :close}
+   \{ {:match \} :direction :open}
+   \} {:match \{ :direction :close}
+   \< {:match \> :direction :open}
+   \> {:match \< :direction :close}})
+
+(defn next-match
+  [text offset opener target]
+  (loop [to-find 1 text (.subSequence text offset (.length text)) acc-offset offset]
+    (let [target-offset (find-next-occurrence text {:pos (set [opener target])})
+          found (.charAt text target-offset)
+          text (.subSequence text (inc target-offset) (.length text))
+          acc-offset (inc acc-offset)]
+      (if (= found target) ; must check first if we found match in case match = char
+        (if (= to-find 1)
+          (+ acc-offset target-offset -1)
+          (recur (dec to-find) text (+ acc-offset target-offset)))
+        (recur (inc to-find) text (+ acc-offset target-offset))))))
+
+(defn previous-match
+  [text offset opener target]
+  (let [len (.length text)
+        idx (- len offset 1)
+        text (-> (StringBuilder. text) .reverse)
+        res (next-match text idx opener target)]
+    (- len res 1)))
+
+(defn ihx-goto-matching
+  [{:keys [_ offset] :as selection} document]
+  (let [text (.getCharsSequence document)
+        opener (.charAt text offset)
+        target (:match (get char-match opener))]
+    (when (contains? char-match opener)
+      (let [direction (:direction (get char-match opener))
+            offset (case direction
+                     :open (next-match text (inc offset) opener target)
+                     :close (previous-match text (dec offset) opener target))]
+        (assoc selection :offset offset)))))
