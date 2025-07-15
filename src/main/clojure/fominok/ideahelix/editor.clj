@@ -663,7 +663,7 @@
     [state] (assoc state :mode :select-match-around)))
 
   (:match-inside
-   (\a
+   (_
     "Select inside"
     [project state document caret char]
      (-> (ihx-selection document caret)
@@ -672,7 +672,7 @@
     [state] (assoc state :mode :normal)))
 
   (:select-match-inside
-   ((:or (:shift \()(:shift \{))
+   (_
     "Select inside"
     [project state document caret char]
      (-> (ihx-selection document caret)
@@ -681,7 +681,7 @@
     [state] (assoc state :mode :select)))
 
   (:match-around
-   ((:or (:shift \()(:shift \{))
+   (_
     "Select around"
     [project state document caret char]
      (-> (ihx-selection document caret)
@@ -690,7 +690,7 @@
     [state] (assoc state :mode :normal)))
 
   (:select-match-around
-   ((:or (:shift \()(:shift \{))
+   (_
     "Select around"
     [project state document caret char]
      (-> (ihx-selection document caret)
