@@ -243,10 +243,7 @@
    ((:or (:ctrl \s) (:ctrl \u0013))
     "Add to jumplist"
     [state project document]
-    (jumplist-add  project state))
-   (\m
-     "Match menu"
-     [state] (assoc state :mode :match)))
+    (jumplist-add  project state)))
 
   (:normal
     (\g "Goto mode" :keep-prefix [state] (assoc state :mode :goto))
@@ -328,7 +325,10 @@
      (do (-> (ihx-move-caret-line-n editor document (get-prefix state))
              ihx-shrink-selection
              (ihx-apply-selection! document))
-         (assoc state :mode :normal))))
+         (assoc state :mode :normal)))
+   (\m
+     "Match menu"
+     [state] (assoc state :mode :match)))
 
   (:select
     (\g
@@ -406,7 +406,10 @@
      [state editor document]
      (do (-> (ihx-move-caret-line-n editor document (get-prefix state))
              (ihx-apply-selection! document))
-         (assoc state :mode :select))))
+         (assoc state :mode :select)))
+   (\m
+     "Match menu"
+     [state] (assoc state :mode :select-match)))
 
   (:goto
     (Character/isDigit
@@ -560,29 +563,68 @@
          state)))
     (_ [state] (assoc state :pass true)))
 
-  ; todo: depend on previous state
   (:match
    (\m
     "Goto matching bracket" :scroll
     [project document editor caret]
     (-> (ihx-selection document caret)
-        (ihx-goto-matching project document editor)
-        ; ihx-shrink-selection
-        (ihx-apply-selection! document)
-        )
-       ))
+        (ihx-goto-matching project document)
+        ihx-shrink-selection
+        (ihx-apply-selection! document))
+    [state] (assoc state :mode :normal))
+   (\i
+    [state] (assoc state :mode :match-inside))
+   (\a
+    [state] (assoc state :mode :match-around)))
+
+  (:select-match
+   (\m
+    "Goto matching bracket" :scroll
+    [project document editor caret]
+    (-> (ihx-selection document caret)
+        (ihx-goto-matching project document)
+        (ihx-apply-selection! document))
+    [state] (assoc state :mode :select))
+   (\i
+    [state] (assoc state :mode :select-match-inside))
+   (\a
+    [state] (assoc state :mode :select-match-around)))
 
   (:match-inside
-   (_
+   ((:or (:shift \()(:shift \{))
     "Select inside"
-    [state document caret char]
-     (-> (ihx-selection document caret) (ihx-select-inside document char))))
+    [project state document caret char]
+     (-> (ihx-selection document caret)
+         (ihx-select-inside project document char)
+         (ihx-apply-selection! document))
+    [state] (assoc state :mode :normal)))
+
+  (:select-match-inside
+   ((:or (:shift \()(:shift \{))
+    "Select inside"
+    [project state document caret char]
+     (-> (ihx-selection document caret)
+         (ihx-select-inside project document char)
+         (ihx-apply-selection! document))
+    [state] (assoc state :mode :select)))
 
   (:match-around
-   (_
+   ((:or (:shift \()(:shift \{))
     "Select around"
-    [state document caret char]
-     (-> (ihx-selection document caret) (ihx-select-around document char)))))
+    [project state document caret char]
+     (-> (ihx-selection document caret)
+         (ihx-select-around project document char)
+         (ihx-apply-selection! document))
+    [state] (assoc state :mode :normal)))
+
+  (:select-match-around
+   ((:or (:shift \()(:shift \{))
+    "Select around"
+    [project state document caret char]
+     (-> (ihx-selection document caret)
+         (ihx-select-around project document char)
+         (ihx-apply-selection! document))
+    [state] (assoc state :mode :select))))
 
 (defn handle-editor-event
   [project ^EditorImpl editor ^KeyEvent event]
