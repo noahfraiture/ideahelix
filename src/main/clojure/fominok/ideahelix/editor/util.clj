@@ -34,3 +34,10 @@
   (let [editor-height-px (.. editor getScrollingModel getVisibleArea getHeight)
         line-height-px (.getLineHeight editor)]
     (int (quot editor-height-px line-height-px))))
+
+(defn printable-char? [c]
+  (let [block (java.lang.Character$UnicodeBlock/of c)]
+    (and (not (Character/isISOControl c))
+         (not= c java.awt.event.KeyEvent/CHAR_UNDEFINED)
+         (some? block)
+         (not= block java.lang.Character$UnicodeBlock/SPECIALS))))

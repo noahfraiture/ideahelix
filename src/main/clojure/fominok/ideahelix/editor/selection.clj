@@ -3,6 +3,7 @@
 ;; file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 (ns fominok.ideahelix.editor.selection
+  (:require [fominok.ideahelix.editor.util :refer [printable-char?]])
   (:import
     (com.intellij.openapi.editor
       Document
@@ -18,7 +19,6 @@
       Project)
     (com.intellij.openapi.ui
       Messages)))
-
 
 ;; Instead of counting positions between characters this wrapper
 ;; speaks in character indices, at least because when selection is getting
@@ -411,3 +411,15 @@
     (doseq [caret free-carets]
       (-> (ihx-selection document caret)
           (ihx-apply-selection! document)))))
+
+(defn ihx-surround-add
+  [{:keys [offset anchor] :as selection} document char]
+  (when (printable-char? char)
+    (cond (> offset anchor)
+          (do (.insertString document (inc offset) (str char))
+              (.insertString document anchor (str char))
+              (assoc selection :offset (+ 2 offset) :anchor anchor))
+          :else
+          (do (.insertString document (inc anchor) (str char))
+              (.insertString document offset (str char))
+              (assoc selection :offset offset :anchor (+ 2 anchor))))))
