@@ -560,15 +560,29 @@
          state)))
     (_ [state] (assoc state :pass true)))
 
+  ; todo: depend on previous state
   (:match
    (\m
     "Goto matching bracket" :scroll
-    [project document caret]
+    [project document editor caret]
     (-> (ihx-selection document caret)
-        (ihx-goto-matching document)
-        ihx-shrink-selection
-        (ihx-apply-selection! document))
-    [state] (assoc state :mode :normal))))
+        (ihx-goto-matching project document editor)
+        ; ihx-shrink-selection
+        (ihx-apply-selection! document)
+        )
+       ))
+
+  (:match-inside
+   (_
+    "Select inside"
+    [state document caret char]
+     (-> (ihx-selection document caret) (ihx-select-inside document char))))
+
+  (:match-around
+   (_
+    "Select around"
+    [state document caret char]
+     (-> (ihx-selection document caret) (ihx-select-around document char)))))
 
 (defn handle-editor-event
   [project ^EditorImpl editor ^KeyEvent event]
