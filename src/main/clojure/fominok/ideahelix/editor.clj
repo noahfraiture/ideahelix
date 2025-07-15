@@ -591,7 +591,7 @@
     [state] (assoc state :mode :select-match-around)))
 
   (:match-inside
-   ((:or (:shift \()(:shift \{))
+   (\a
     "Select inside"
     [project state document caret char]
      (-> (ihx-selection document caret)
