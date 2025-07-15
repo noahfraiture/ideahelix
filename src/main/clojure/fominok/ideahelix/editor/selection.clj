@@ -17,8 +17,12 @@
     (com.intellij.openapi.project
       Project)
     (com.intellij.openapi.ui
-      Messages)))
-
+      Messages)
+    (com.intellij.psi
+      PsiDocumentManager)
+    (com.intellij.codeInsight.highlighting
+      BraceMatchingUtil)
+      ))
 
 ;; Instead of counting positions between characters this wrapper
 ;; speaks in character indices, at least because when selection is getting
@@ -477,3 +481,46 @@
     (doseq [caret free-carets]
       (-> (ihx-selection document caret)
           (ihx-apply-selection! document)))))
+
+(def char-match
+  {\( {:match \) :direction :open}
+   \) {:match \( :direction :close}
+   \[ {:match \] :direction :open}
+   \] {:match \[ :direction :close}
+   \{ {:match \} :direction :open}
+   \} {:match \{ :direction :close}
+   \< {:match \> :direction :open}
+   \> {:match \< :direction :close}})
+
+(defn next-match
+  [text idx-char char match]
+  (loop [to-find 0 text (.subSequence text idx-char (.length text)) acc idx-char]
+    (let [idx-match (find-next-occurrence text {:pos #{char match}})
+          found (.charAt text idx-match)
+          text (.subSequence text (inc idx-match) (.length text))
+          acc (inc acc)]
+      (if (= found char)
+        (recur (inc to-find) text (+ acc idx-match))
+        (if (= to-find 1)
+          (+ acc idx-match -1)
+          (recur (dec to-find) text (+ acc idx-match)))))))
+
+(defn previous-match
+  [text idx char match]
+  (let [len (.length text)
+        idx (- len idx 1)
+        text (-> (StringBuilder. text) .reverse)
+        res (next-match text idx char match)]
+    (- len res 1)))
+
+(defn ihx-goto-matching
+  [{:keys [_ offset] :as selection} document]
+  (let [text (.getCharsSequence document)
+        char (.charAt text offset)]
+    (when (contains? char-match char)
+      (let [match (:match (get char-match char))
+            direction (:direction (get char-match char))
+            offset (case direction
+                     :open (next-match text offset char match)
+                     :close (previous-match text offset char match))]
+        (assoc selection :offset offset)))))

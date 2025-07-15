@@ -243,7 +243,10 @@
    ((:or (:ctrl \s) (:ctrl \u0013))
     "Add to jumplist"
     [state project document]
-    (jumplist-add  project state)))
+    (jumplist-add  project state))
+   (\m
+     "Match menu"
+     [state] (assoc state :mode :match)))
 
   (:normal
     (\g "Goto mode" :keep-prefix [state] (assoc state :mode :goto))
@@ -627,8 +630,17 @@
        (when-let [^LookupImpl lookup (LookupManager/getActiveLookup editor)]
          (.setSelectedIndex lookup (dec (.getSelectedIndex lookup)))
          state)))
-    (_ [state] (assoc state :pass true))))
+    (_ [state] (assoc state :pass true)))
 
+  (:match
+   (\m
+    "Goto matching bracket" :scroll
+    [project document caret]
+    (-> (ihx-selection document caret)
+        (ihx-goto-matching document)
+        ihx-shrink-selection
+        (ihx-apply-selection! document))
+    [state] (assoc state :mode :normal))))
 
 (defn handle-editor-event
   [project ^EditorImpl editor ^KeyEvent event]
