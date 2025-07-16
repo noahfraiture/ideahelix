@@ -454,24 +454,27 @@
   (when (printable-char? char)
     (let [text (.getCharsSequence document)
           {:keys [open-char close-char]} (get-open-close-chars char)
-          curr-char (.charAt text offset)
-          left (previous-match text offset close-char open-char)
-          right (next-match text offset open-char close-char)]
+          curr-char (.charAt text offset)]
       (if (and (not= open-char curr-char) (not= close-char curr-char))
-        (do (.deleteString document right (inc right))
-            (.deleteString document left (inc left))
-            (assoc selection :offset (dec offset) :anchor (if
-                                                           (> anchor left)
-                                                            (dec anchor)
-                                                            anchor)))
+        (let [left (previous-match text offset close-char open-char)
+              right (next-match text offset open-char close-char)
+              anchor (if (> anchor left)
+                       (dec anchor)
+                       anchor)]
+          (.deleteString document right (inc right))
+          (.deleteString document left (inc left))
+          (assoc selection :offset (dec offset) :anchor anchor))
         (cond
           (= open-char close-char) nil
-          (= open-char curr-char) (do (.deleteString document right (inc right))
-                                      (.deleteString document left (inc left))
-                                      (assoc selection :offset offset :anchor (if
-                                                                               (> anchor offset)
-                                                                                (dec anchor)
-                                                                                anchor)))
-          (= close-char curr-char) (do (.deleteString document right (inc right))
-                                       (.deleteString document left (inc left))
-                                       (assoc selection :offset offset :anchor (dec anchor))))))))
+          (= open-char curr-char) (let [left offset
+                                        right (next-match text (inc offset) open-char close-char)
+                                        anchor (if (> anchor offset) (dec anchor) anchor)]
+                                    (.deleteString document right (inc right))
+                                    (.deleteString document left (inc left))
+                                    (assoc selection :offset offset :anchor anchor))
+          (= close-char curr-char) (let [left (previous-match text (dec offset) close-char open-char)
+                                         right offset
+                                         anchor (dec anchor)]
+                                     (.deleteString document right (inc right))
+                                     (.deleteString document left (inc left))
+                                     (assoc selection :offset (dec offset) :anchor anchor)))))))
