@@ -563,6 +563,13 @@
          state)))
     (_ [state] (assoc state :pass true)))
 
+  ((:or :match :select-match)
+   (\s
+    [state] (assoc state :mode :match-surround-add))
+   (\d
+    [state] (assoc state :mode :match-surround-delete)))
+  
+
   (:match
    (\m
     "Goto matching bracket"
@@ -575,9 +582,7 @@
    (\i
     [state] (assoc state :mode :match-inside))
    (\a
-    [state] (assoc state :mode :match-around))
-   (\s
-    [state] (assoc state :mode :match-surround-add)))
+    [state] (assoc state :mode :match-around)))
 
   (:select-match
    (\m
@@ -630,10 +635,19 @@
 
   (:match-surround-add
    (_
-    "Surround add" :write :undoable
+    "Surround add" :write
+    [project state document caret char]
+     (when (-> (ihx-selection document caret)
+               (ihx-surround-add project document char)
+               (ihx-apply-selection! document))
+           (assoc state :mode :normal))))
+
+  (:match-surround-delete
+   (_
+    "Surround delete" :write
     [project state document caret char]
      (-> (ihx-selection document caret)
-         (ihx-surround-add project document char)
+         (ihx-surround-delete project document char)
          (ihx-apply-selection! document)
          (assoc :mode :normal)))))
 

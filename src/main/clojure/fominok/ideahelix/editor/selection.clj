@@ -458,13 +458,15 @@
                      :close (previous-match project text (dec offset) opener target))]
         (assoc selection :offset offset)))))
 
+(defn get-open-close-chars [char]
+  (let [match-info (get char-match char)]
+    (cond (nil? match-info) {:open-char char :close-char char}
+          (= (:direction match-info) :open) {:open-char char :close-char (:match match-info)}
+          :else {:open-char (:match match-info) :close-char char})))
+
 (defn find-matches
   [{:keys [_ offset]} project document char]
-  (let [match-info (get char-match char)
-        [open-char close-char] (cond
-                                 (nil? match-info) [char char]
-                                 (= (:direction match-info) :open) [char (:match match-info)]
-                                 :else [(:match match-info) char])
+  (let [{:keys [open-char close-char]} (get-open-close-chars char)
         text (.getCharsSequence document)
         curr-char (.charAt (.getCharsSequence document) offset)]
     (if (and (not= open-char curr-char) (not= close-char curr-char))
@@ -491,13 +493,31 @@
 
 (defn ihx-surround-add
   [{:keys [offset anchor] :as selection} project document char]
-  ; note : i do not think it is the best solution to avoid weird char like shift
   (when (printable-char? char)
-    (cond (> offset anchor)
-          (do (.insertString document (inc offset) (String/valueOf char))
-              (.insertString document anchor (String/valueOf char))
-              (assoc selection :offset (+ 2 offset) :anchor anchor))
-          :else
-          (do (.insertString document (inc anchor) (str char))
-              (.insertString document offset (str char))
-              (assoc selection :offset offset :anchor (+ 2 anchor))))))
+    (let [matches (find-matches selection project document char)]
+      (when (not (nil? matches))
+        ((cond (> offset anchor)
+               (do (.insertString document (inc offset) (str char))
+                   (.insertString document anchor (str char))
+                   (assoc selection :offset (+ 2 offset)))
+               :else
+               (do (.insertString document (inc anchor) (str char))
+                   (.insertString document offset (str char))
+                   (assoc selection :anchor (+ 2 anchor)))))))))
+
+(defn ihx-surround-delete
+  [{:keys [offset anchor] :as selection} project document char]
+  (when (printable-char? char)
+    (let [text (.getCharsSequence document)
+          {:keys [open-char close-char]} (get-open-close-chars char)
+          curr-char (.charAt text offset)
+          left (previous-match project text offset close-char open-char)
+          right (next-match project text offset open-char close-char)]
+      ; special case where we are on the key
+      ; (when (and (not= offset left) (not= offset right))
+      ; ())
+      (.deleteString document right (inc right))
+      (.deleteString document left (inc left))
+      (if (= :open (:direction (get char-match (.charAt () offset))))
+        (assoc selection :offset offset :anchor (dec anchor))
+        (assoc selection :offset (dec offset) :anchor (dec anchor))))))
