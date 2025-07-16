@@ -637,10 +637,9 @@
    (_
     "Surround add" :write
     [project state document caret char]
-     (when (-> (ihx-selection document caret)
-               (ihx-surround-add project document char)
-               (ihx-apply-selection! document))
-           (assoc state :mode :normal))))
+     (-> (ihx-selection document caret)
+         (ihx-surround-add project document char)
+         (ihx-apply-selection! document))))
 
   (:match-surround-delete
    (_
@@ -648,8 +647,7 @@
     [project state document caret char]
      (-> (ihx-selection document caret)
          (ihx-surround-delete project document char)
-         (ihx-apply-selection! document)
-         (assoc :mode :normal)))))
+         (ihx-apply-selection! document)))))
 
 (defn handle-editor-event
   [project ^EditorImpl editor ^KeyEvent event]

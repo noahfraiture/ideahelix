@@ -494,16 +494,14 @@
 (defn ihx-surround-add
   [{:keys [offset anchor] :as selection} project document char]
   (when (printable-char? char)
-    (let [matches (find-matches selection project document char)]
-      (when (not (nil? matches))
-        ((cond (> offset anchor)
-               (do (.insertString document (inc offset) (str char))
-                   (.insertString document anchor (str char))
-                   (assoc selection :offset (+ 2 offset)))
-               :else
-               (do (.insertString document (inc anchor) (str char))
-                   (.insertString document offset (str char))
-                   (assoc selection :anchor (+ 2 anchor)))))))))
+    (cond (> offset anchor)
+          (do (.insertString document (inc offset) (str char))
+              (.insertString document anchor (str char))
+              (assoc selection :offset (+ 2 offset) :anchor anchor))
+          :else
+          (do (.insertString document (inc anchor) (str char))
+              (.insertString document offset (str char))
+              (assoc selection :offset offset :anchor (+ 2 anchor))))))
 
 (defn ihx-surround-delete
   [{:keys [offset anchor] :as selection} project document char]
@@ -513,11 +511,21 @@
           curr-char (.charAt text offset)
           left (previous-match project text offset close-char open-char)
           right (next-match project text offset open-char close-char)]
-      ; special case where we are on the key
-      ; (when (and (not= offset left) (not= offset right))
-      ; ())
-      (.deleteString document right (inc right))
-      (.deleteString document left (inc left))
-      (if (= :open (:direction (get char-match (.charAt () offset))))
-        (assoc selection :offset offset :anchor (dec anchor))
-        (assoc selection :offset (dec offset) :anchor (dec anchor))))))
+      (if (and (not= open-char curr-char) (not= close-char curr-char))
+        (do (.deleteString document right (inc right))
+            (.deleteString document left (inc left))
+            (assoc selection :offset (dec offset) :anchor (if
+                                                           (> anchor left)
+                                                            (dec anchor)
+                                                            (anchor))))
+        (cond
+          (= open-char close-char) nil
+          (= open-char curr-char) (do (.deleteString document right (inc right))
+                                      (.deleteString document left (inc left))
+                                      (assoc selection :offset offset :anchor (if
+                                                                               (> anchor offset)
+                                                                                (dec anchor)
+                                                                                anchor)))
+          (= close-char curr-char) (do (.deleteString document right (inc right))
+                                       (.deleteString document left (inc left))
+                                       (assoc selection :offset offset :anchor (dec anchor))))))))
