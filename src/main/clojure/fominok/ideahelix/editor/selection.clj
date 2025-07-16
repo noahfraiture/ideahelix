@@ -425,7 +425,7 @@
   })
 
 (defn next-match
-  [project text offset opener target]
+  [text offset opener target]
   (loop [to-find 1 text (.subSequence text offset (.length text)) acc-offset offset]
     (let [target-offset (find-next-occurrence text {:pos (set [opener target])})
           found (.charAt text target-offset)
@@ -438,24 +438,24 @@
         (recur (inc to-find) text (+ acc-offset target-offset))))))
 
 (defn previous-match
-  [project text offset opener target]
+  [text offset opener target]
   (let [len (.length text)
         idx (- len offset 1)
         text (-> (StringBuilder. text) .reverse)
-        res (next-match project text idx opener target)]
+        res (next-match text idx opener target)]
     (- len res 1)))
 
 ; todo : if no match
 (defn ihx-goto-matching
-  [{:keys [_ offset] :as selection} project document]
+  [{:keys [_ offset] :as selection} document]
   (let [text (.getCharsSequence document)
         opener (.charAt text offset)
         target (:match (get char-match opener))]
     (when (contains? char-match opener)
       (let [direction (:direction (get char-match opener))
             offset (case direction
-                     :open (next-match project text (inc offset) opener target)
-                     :close (previous-match project text (dec offset) opener target))]
+                     :open (next-match text (inc offset) opener target)
+                     :close (previous-match text (dec offset) opener target))]
         (assoc selection :offset offset)))))
 
 (defn get-open-close-chars [char]
@@ -465,34 +465,34 @@
           :else {:open-char (:match match-info) :close-char char})))
 
 (defn find-matches
-  [{:keys [_ offset]} project document char]
+  [{:keys [_ offset]} document char]
   (let [{:keys [open-char close-char]} (get-open-close-chars char)
         text (.getCharsSequence document)
         curr-char (.charAt (.getCharsSequence document) offset)]
     (if (and (not= open-char curr-char) (not= close-char curr-char))
-      {:left (previous-match project text offset close-char open-char)
-       :right (next-match project text offset open-char close-char)}
+      {:left (previous-match text offset close-char open-char)
+       :right (next-match text offset open-char close-char)}
       (cond
         (= open-char close-char) nil
         (= open-char curr-char) {:left offset
-                                 :right (next-match project text (inc offset) open-char close-char)}
-        (= close-char curr-char) {:left (previous-match project text (dec offset) close-char open-char)
+                                 :right (next-match text (inc offset) open-char close-char)}
+        (= close-char curr-char) {:left (previous-match text (dec offset) close-char open-char)
                                   :right offset}))))
 
 (defn ihx-select-inside
-  [selection project document char]
-  (let [matches (find-matches selection project document char)]
+  [selection document char]
+  (let [matches (find-matches selection document char)]
     (when (not (nil? matches))
       (assoc selection :offset (inc (:left matches)) :anchor (dec (:right matches))))))
 
 (defn ihx-select-around
-  [selection project document char]
-  (let [matches (find-matches selection project document char)]
+  [selection document char]
+  (let [matches (find-matches selection document char)]
     (when (not (nil? matches))
       (assoc selection :offset (:left matches) :anchor (:right matches)))))
 
 (defn ihx-surround-add
-  [{:keys [offset anchor] :as selection} project document char]
+  [{:keys [offset anchor] :as selection} document char]
   (when (printable-char? char)
     (cond (> offset anchor)
           (do (.insertString document (inc offset) (str char))
@@ -504,20 +504,20 @@
               (assoc selection :offset offset :anchor (+ 2 anchor))))))
 
 (defn ihx-surround-delete
-  [{:keys [offset anchor] :as selection} project document char]
+  [{:keys [offset anchor] :as selection} document char]
   (when (printable-char? char)
     (let [text (.getCharsSequence document)
           {:keys [open-char close-char]} (get-open-close-chars char)
           curr-char (.charAt text offset)
-          left (previous-match project text offset close-char open-char)
-          right (next-match project text offset open-char close-char)]
+          left (previous-match text offset close-char open-char)
+          right (next-match text offset open-char close-char)]
       (if (and (not= open-char curr-char) (not= close-char curr-char))
         (do (.deleteString document right (inc right))
             (.deleteString document left (inc left))
             (assoc selection :offset (dec offset) :anchor (if
                                                            (> anchor left)
                                                             (dec anchor)
-                                                            (anchor))))
+                                                            anchor)))
         (cond
           (= open-char close-char) nil
           (= open-char curr-char) (do (.deleteString document right (inc right))
