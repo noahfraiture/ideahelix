@@ -3,6 +3,7 @@
 ;; file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 (ns fominok.ideahelix.editor.selection
+  (:require [fominok.ideahelix.editor.util :refer [printable-char?]])
   (:import
     (com.intellij.openapi.editor
       Document
@@ -457,7 +458,6 @@
                      :close (previous-match project text (dec offset) opener target))]
         (assoc selection :offset offset)))))
 
-; todo : get when on it
 (defn find-matches
   [{:keys [_ offset]} project document char]
   (let [match-info (get char-match char)
@@ -488,3 +488,16 @@
   (let [matches (find-matches selection project document char)]
     (when (not (nil? matches))
       (assoc selection :offset (:left matches) :anchor (:right matches)))))
+
+(defn ihx-surround-add
+  [{:keys [offset anchor] :as selection} project document char]
+  ; note : i do not think it is the best solution to avoid weird char like shift
+  (when (printable-char? char)
+    (cond (> offset anchor)
+          (do (.insertString document (inc offset) (String/valueOf char))
+              (.insertString document anchor (String/valueOf char))
+              (assoc selection :offset (+ 2 offset) :anchor anchor))
+          :else
+          (do (.insertString document (inc anchor) (str char))
+              (.insertString document offset (str char))
+              (assoc selection :offset offset :anchor (+ 2 anchor))))))

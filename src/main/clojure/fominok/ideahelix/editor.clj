@@ -565,7 +565,7 @@
 
   (:match
    (\m
-    "Goto matching bracket" :scroll
+    "Goto matching bracket"
     [project document editor caret]
     (-> (ihx-selection document caret)
         (ihx-goto-matching project document)
@@ -575,11 +575,13 @@
    (\i
     [state] (assoc state :mode :match-inside))
    (\a
-    [state] (assoc state :mode :match-around)))
+    [state] (assoc state :mode :match-around))
+   (\s
+    [state] (assoc state :mode :match-surround-add)))
 
   (:select-match
    (\m
-    "Goto matching bracket" :scroll
+    "Goto matching bracket"
     [project document editor caret]
     (-> (ihx-selection document caret)
         (ihx-goto-matching project document)
@@ -624,7 +626,16 @@
      (-> (ihx-selection document caret)
          (ihx-select-around project document char)
          (ihx-apply-selection! document))
-    [state] (assoc state :mode :select))))
+    [state] (assoc state :mode :select)))
+
+  (:match-surround-add
+   (_
+    "Surround add" :write :undoable
+    [project state document caret char]
+     (-> (ihx-selection document caret)
+         (ihx-surround-add project document char)
+         (ihx-apply-selection! document)
+         (assoc :mode :normal)))))
 
 (defn handle-editor-event
   [project ^EditorImpl editor ^KeyEvent event]
