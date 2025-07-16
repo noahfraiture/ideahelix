@@ -420,9 +420,7 @@
    \{ {:match \} :direction :open}
    \} {:match \{ :direction :close}
    \< {:match \> :direction :open}
-   \> {:match \< :direction :close}
-   \" {:match \" :direction :close}
-  })
+   \> {:match \< :direction :close}})
 
 (defn next-match
   [text offset opener target]
@@ -445,7 +443,6 @@
         res (next-match text idx opener target)]
     (- len res 1)))
 
-; todo : if no match
 (defn ihx-goto-matching
   [{:keys [_ offset] :as selection} document]
   (let [text (.getCharsSequence document)
@@ -457,75 +454,3 @@
                      :open (next-match text (inc offset) opener target)
                      :close (previous-match text (dec offset) opener target))]
         (assoc selection :offset offset)))))
-
-(defn get-open-close-chars [char]
-  (let [match-info (get char-match char)]
-    (cond (nil? match-info) {:open-char char :close-char char}
-          (= (:direction match-info) :open) {:open-char char :close-char (:match match-info)}
-          :else {:open-char (:match match-info) :close-char char})))
-
-(defn find-matches
-  [{:keys [_ offset]} document char]
-  (let [{:keys [open-char close-char]} (get-open-close-chars char)
-        text (.getCharsSequence document)
-        curr-char (.charAt (.getCharsSequence document) offset)]
-    (if (and (not= open-char curr-char) (not= close-char curr-char))
-      {:left (previous-match text offset close-char open-char)
-       :right (next-match text offset open-char close-char)}
-      (cond
-        (= open-char close-char) nil
-        (= open-char curr-char) {:left offset
-                                 :right (next-match text (inc offset) open-char close-char)}
-        (= close-char curr-char) {:left (previous-match text (dec offset) close-char open-char)
-                                  :right offset}))))
-
-(defn ihx-select-inside
-  [selection document char]
-  (let [matches (find-matches selection document char)]
-    (when (not (nil? matches))
-      (assoc selection :offset (inc (:left matches)) :anchor (dec (:right matches))))))
-
-(defn ihx-select-around
-  [selection document char]
-  (let [matches (find-matches selection document char)]
-    (when (not (nil? matches))
-      (assoc selection :offset (:left matches) :anchor (:right matches)))))
-
-(defn ihx-surround-add
-  [{:keys [offset anchor] :as selection} document char]
-  (when (printable-char? char)
-    (cond (> offset anchor)
-          (do (.insertString document (inc offset) (str char))
-              (.insertString document anchor (str char))
-              (assoc selection :offset (+ 2 offset) :anchor anchor))
-          :else
-          (do (.insertString document (inc anchor) (str char))
-              (.insertString document offset (str char))
-              (assoc selection :offset offset :anchor (+ 2 anchor))))))
-
-(defn ihx-surround-delete
-  [{:keys [offset anchor] :as selection} document char]
-  (when (printable-char? char)
-    (let [text (.getCharsSequence document)
-          {:keys [open-char close-char]} (get-open-close-chars char)
-          curr-char (.charAt text offset)
-          left (previous-match text offset close-char open-char)
-          right (next-match text offset open-char close-char)]
-      (if (and (not= open-char curr-char) (not= close-char curr-char))
-        (do (.deleteString document right (inc right))
-            (.deleteString document left (inc left))
-            (assoc selection :offset (dec offset) :anchor (if
-                                                           (> anchor left)
-                                                            (dec anchor)
-                                                            anchor)))
-        (cond
-          (= open-char close-char) nil
-          (= open-char curr-char) (do (.deleteString document right (inc right))
-                                      (.deleteString document left (inc left))
-                                      (assoc selection :offset offset :anchor (if
-                                                                               (> anchor offset)
-                                                                                (dec anchor)
-                                                                                anchor)))
-          (= close-char curr-char) (do (.deleteString document right (inc right))
-                                       (.deleteString document left (inc left))
-                                       (assoc selection :offset offset :anchor (dec anchor))))))))

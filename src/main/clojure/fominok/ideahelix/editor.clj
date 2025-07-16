@@ -563,12 +563,6 @@
          state)))
     (_ [state] (assoc state :pass true)))
 
-  ((:or :match :select-match)
-   (\s
-    [state] (assoc state :mode :match-surround-add))
-   (\d
-    [state] (assoc state :mode :match-surround-delete)))
-  
 
   (:match
    (\m
@@ -578,11 +572,7 @@
         (ihx-goto-matching document)
         ihx-shrink-selection
         (ihx-apply-selection! document))
-    [state] (assoc state :mode :normal))
-   (\i
-    [state] (assoc state :mode :match-inside))
-   (\a
-    [state] (assoc state :mode :match-around)))
+    [state] (assoc state :mode :normal)))
 
   (:select-match
    (\m
@@ -591,63 +581,7 @@
     (-> (ihx-selection document caret)
         (ihx-goto-matching document)
         (ihx-apply-selection! document))
-    [state] (assoc state :mode :select))
-   (\i
-    [state] (assoc state :mode :select-match-inside))
-   (\a
-    [state] (assoc state :mode :select-match-around)))
-
-  (:match-inside
-   (_
-    "Select inside"
-    [project state document caret char]
-     (-> (ihx-selection document caret)
-         (ihx-select-inside document char)
-         (ihx-apply-selection! document))
-    [state] (assoc state :mode :normal)))
-
-  (:select-match-inside
-   (_
-    "Select inside"
-    [project state document caret char]
-     (-> (ihx-selection document caret)
-         (ihx-select-inside document char)
-         (ihx-apply-selection! document))
-    [state] (assoc state :mode :select)))
-
-  (:match-around
-   (_
-    "Select around"
-    [project state document caret char]
-     (-> (ihx-selection document caret)
-         (ihx-select-around document char)
-         (ihx-apply-selection! document))
-    [state] (assoc state :mode :normal)))
-
-  (:select-match-around
-   (_
-    "Select around"
-    [project state document caret char]
-     (-> (ihx-selection document caret)
-         (ihx-select-around document char)
-         (ihx-apply-selection! document))
-    [state] (assoc state :mode :select)))
-
-  (:match-surround-add
-   (_
-    "Surround add" :write
-    [project state document caret char]
-     (-> (ihx-selection document caret)
-         (ihx-surround-add document char)
-         (ihx-apply-selection! document))))
-
-  (:match-surround-delete
-   (_
-    "Surround delete" :write
-    [project state document caret char]
-     (-> (ihx-selection document caret)
-         (ihx-surround-delete document char)
-         (ihx-apply-selection! document)))))
+    [state] (assoc state :mode :select))))
 
 (defn handle-editor-event
   [project ^EditorImpl editor ^KeyEvent event]
