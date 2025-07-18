@@ -296,6 +296,14 @@
         (-> (ihx-selection document caret)
             (ihx-word-backward! editor)
             (ihx-apply-selection! document))))
+    ((:shift \B)
+      "Select WORD backward" :scroll
+      [state document caret]
+
+      (dotimes [_ (get-prefix state)]
+        (-> (ihx-selection document caret)
+            (ihx-long-word-backward! document false)
+            (ihx-apply-selection! document))))
     ((:or \j KeyEvent/VK_DOWN)
      "Move carets down" :scroll
      [state document caret]
@@ -385,6 +393,13 @@
       (dotimes [_ (get-prefix state)]
         (-> (ihx-selection document caret)
             (ihx-word-backward-extending! editor)
+            (ihx-apply-selection! document))))
+    ((:shift \B)
+      "Select WORD backward extending" :scroll
+      [state editor document caret]
+      (dotimes [_ (get-prefix state)]
+        (-> (ihx-selection document caret)
+            (ihx-long-word-backward! document true)
             (ihx-apply-selection! document))))
     ((:or \j KeyEvent/VK_DOWN)
      "Move carets down extending" :scroll
