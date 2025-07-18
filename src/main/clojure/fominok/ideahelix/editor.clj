@@ -275,6 +275,13 @@
         (-> (ihx-selection document caret)
             (ihx-word-forward! editor)
             (ihx-apply-selection! document))))
+    ((:shift \W)
+     "Select WORD forward" :scroll
+     [state editor document caret]
+     (dotimes [_ (get-prefix state)]
+       (-> (ihx-selection document caret)
+           (ihx-long-word-forward! document false)
+           (ihx-apply-selection! document))))
     (\e
       "Select word end" :scroll
       [state editor document caret]
@@ -282,6 +289,13 @@
         (-> (ihx-selection document caret)
             (ihx-word-end! editor)
             (ihx-apply-selection! document))))
+    ((:shift \E)
+     "Select WORD end" :scroll
+     [state document caret]
+     (dotimes [_ (get-prefix state)]
+       (-> (ihx-selection document caret)
+           (ihx-long-word-end! document false)
+           (ihx-apply-selection! document))))
     (\b
       "Select word backward" :scroll
       [state document editor caret]
@@ -289,6 +303,14 @@
         (-> (ihx-selection document caret)
             (ihx-word-backward! editor)
             (ihx-apply-selection! document))))
+    ((:shift \B)
+     "Select WORD backward" :scroll
+     [state document caret]
+
+     (dotimes [_ (get-prefix state)]
+       (-> (ihx-selection document caret)
+           (ihx-long-word-backward! document false)
+           (ihx-apply-selection! document))))
     ((:or \j KeyEvent/VK_DOWN)
      "Move carets down" :scroll
      [state document caret]
@@ -319,6 +341,21 @@
          (ihx-move-forward (get-prefix state))
          ihx-shrink-selection
          (ihx-apply-selection! document)))
+    (KeyEvent/VK_HOME
+      "Move carets to line start" :scroll
+      [editor document caret]
+      (-> (ihx-selection document caret)
+          (ihx-move-line-start editor document)
+          ihx-shrink-selection
+          (ihx-apply-selection! document)))
+    (KeyEvent/VK_END
+      "Move carets to line end" :scroll
+      [editor document caret]
+      (-> (ihx-selection document caret)
+          (ihx-move-line-end editor document)
+          (ihx-move-backward 1)
+          ihx-shrink-selection
+          (ihx-apply-selection! document)))
     ((:shift \G)
      "Move to line number" :scroll :jumplist-add
      [state editor document]
@@ -361,6 +398,13 @@
         (-> (ihx-selection document caret)
             (ihx-word-forward-extending! editor)
             (ihx-apply-selection! document))))
+    ((:shift \W)
+     "Select WORD forward extending" :scroll
+     [state editor document caret]
+     (dotimes [_ (get-prefix state)]
+       (-> (ihx-selection document caret)
+           (ihx-long-word-forward! document true)
+           (ihx-apply-selection! document))))
     (\e
       "Select word end extending" :scroll
       [state document editor caret]
@@ -368,6 +412,13 @@
         (-> (ihx-selection document caret)
             (ihx-word-end-extending! editor)
             (ihx-apply-selection! document))))
+    ((:shift \E)
+     "Select WORD end extending" :scroll
+     [state editor document caret]
+     (dotimes [_ (get-prefix state)]
+       (-> (ihx-selection document caret)
+           (ihx-long-word-end! document true)
+           (ihx-apply-selection! document))))
     (\b
       "Select word backward extending" :scroll
       [state document editor caret]
@@ -375,6 +426,13 @@
         (-> (ihx-selection document caret)
             (ihx-word-backward-extending! editor)
             (ihx-apply-selection! document))))
+    ((:shift \B)
+     "Select WORD backward extending" :scroll
+     [state editor document caret]
+     (dotimes [_ (get-prefix state)]
+       (-> (ihx-selection document caret)
+           (ihx-long-word-backward! document true)
+           (ihx-apply-selection! document))))
     ((:or \j KeyEvent/VK_DOWN)
      "Move carets down extending" :scroll
      [state document caret]
@@ -401,6 +459,19 @@
      (-> (ihx-selection document caret)
          (ihx-move-forward (get-prefix state))
          (ihx-apply-selection! document)))
+    (KeyEvent/VK_HOME
+      "Move carets to line start" :scroll
+      [editor document caret]
+      (-> (ihx-selection document caret)
+          (ihx-move-line-start editor document)
+          (ihx-apply-selection! document)))
+    (KeyEvent/VK_END
+      "Move carets to line end" :scroll
+      [editor document caret]
+      (-> (ihx-selection document caret)
+          (ihx-move-line-end editor document)
+          (ihx-move-backward 1)
+          (ihx-apply-selection! document)))
     ((:shift \G)
      "Move to line number" :scroll :jumplist-add
      [state editor document]
@@ -563,6 +634,7 @@
          state)))
     (_ [state] (assoc state :pass true)))
 
+
   (:match
    (\i
     [state] (assoc state :mode :match-inside))
@@ -609,6 +681,48 @@
      (-> (ihx-selection document caret)
          (ihx-select-around document char)
          (ihx-apply-selection! document))
+
+  ((:or :match :select-match)
+   (\s
+    [state] (assoc state :mode :match-surround-add)))
+
+  (:match-surround-add
+   (_
+    "Surround add" :write
+    [project state document caret char]
+     (-> (ihx-selection document caret)
+         (ihx-surround-add document char)
+         (ihx-apply-selection! document)))))
+
+  ((:or :match :select-match)
+   (\d
+    [state] (assoc state :mode :match-surround-delete)))
+
+  (:match-surround-delete
+   (_
+    "Surround delete" :write
+    [project state document caret char]
+    (-> (ihx-selection document caret)
+        (ihx-surround-delete document char)
+        (ihx-apply-selection! document))))
+
+  (:match
+   (\m
+    "Goto matching bracket"
+    [project document editor caret]
+    (-> (ihx-selection document caret)
+        (ihx-goto-matching document)
+        ihx-shrink-selection
+        (ihx-apply-selection! document))
+    [state] (assoc state :mode :normal)))
+
+  (:select-match
+   (\m
+    "Goto matching bracket"
+    [project document editor caret]
+    (-> (ihx-selection document caret)
+        (ihx-goto-matching document)
+        (ihx-apply-selection! document))
     [state] (assoc state :mode :select))))
 
 (defn handle-editor-event
