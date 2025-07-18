@@ -635,6 +635,18 @@
     (_ [state] (assoc state :pass true)))
 
   ((:or :match :select-match)
+   (\s
+    [state] (assoc state :mode :match-surround-add)))
+
+  (:match-surround-add
+   (_
+    "Surround add" :write
+    [project state document caret char]
+     (-> (ihx-selection document caret)
+         (ihx-surround-add document char)
+         (ihx-apply-selection! document)))))
+
+  ((:or :match :select-match)
    (\d
     [state] (assoc state :mode :match-surround-delete)))
 

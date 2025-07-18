@@ -478,6 +478,18 @@
       (-> (ihx-selection document caret)
           (ihx-apply-selection! document)))))
 
+(defn ihx-surround-add
+  [{:keys [offset anchor] :as selection} document char]
+  (when (printable-char? char)
+    (cond (> offset anchor)
+          (do (.insertString document (inc offset) (str char))
+              (.insertString document anchor (str char))
+              (assoc selection :offset (+ 2 offset) :anchor anchor))
+          :else
+          (do (.insertString document (inc anchor) (str char))
+              (.insertString document offset (str char))
+              (assoc selection :offset offset :anchor (+ 2 anchor))))))
+
 (def char-match
   {\( {:match \) :direction :open}
    \) {:match \( :direction :close}
@@ -555,4 +567,3 @@
                      :open (next-match text (inc offset) opener match)
                      :close (previous-match text (dec offset) opener match))]
         (assoc selection :offset offset)))))
-
