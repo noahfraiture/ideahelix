@@ -19,7 +19,6 @@
     (com.intellij.openapi.ui
       Messages)))
 
-
 ;; Instead of counting positions between characters this wrapper
 ;; speaks in character indices, at least because when selection is getting
 ;; reversed on caret movement the pivot is a character in Helix rather than
@@ -281,7 +280,7 @@
   [state editor ^Document document char & {:keys [include]
                                            :or {include false}}]
   (when
-   (or (Character/isLetterOrDigit char) ((into #{} "!@#$%^&*()_+-={}[]|;:<>.,?~`") char))
+    (or (Character/isLetterOrDigit char) ((into #{} "!@#$%^&*()_+-={}[]|;:<>.,?~`") char))
     (doseq [caret (.. editor getCaretModel getAllCarets)]
       (let [text (.getCharsSequence document)
             len (.length text)
@@ -289,10 +288,10 @@
             sub (.subSequence text (+ 2 (.getOffset caret)) len)]
         (when-let [delta (find-next-occurrence sub {:pos #{char}})]
           (cond-> (ihx-selection document caret)
-            (not expand) (ihx-shrink-selection)
-            true (ihx-move-forward (inc delta))
-            include (ihx-move-forward 1)
-            true (ihx-apply-selection! document)))))
+                  (not expand) (ihx-shrink-selection)
+                  true (ihx-move-forward (inc delta))
+                  include (ihx-move-forward 1)
+                  true (ihx-apply-selection! document)))))
     (assoc state :mode (:previous-mode state))))
 
 ;; This modifies the caret
@@ -352,13 +351,6 @@
         (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_END false true)
         (assoc selection :offset (max 0 (dec (.getOffset caret))) :anchor new-offset))
       (assoc selection :offset (max 0 (dec new-offset)) :anchor offset))))
-
-(defn find-next-occurrence
-  [^CharSequence text {:keys [pos neg]}]
-  (first (keep-indexed #(when (or
-                                (contains? pos %2)
-                                (not (or (nil? neg) (contains? neg %2))))
-                          %1) text)))
 
 (defn ihx-long-word-end!
   [{:keys [_ offset] :as selection} document extending?]
@@ -484,3 +476,45 @@
     (doseq [caret free-carets]
       (-> (ihx-selection document caret)
           (ihx-apply-selection! document)))))
+
+(def char-match
+  {\( {:match \) :direction :open}
+   \) {:match \( :direction :close}
+   \[ {:match \] :direction :open}
+   \] {:match \[ :direction :close}
+   \{ {:match \} :direction :open}
+   \} {:match \{ :direction :close}
+   \< {:match \> :direction :open}
+   \> {:match \< :direction :close}})
+
+(defn next-match
+  [text offset opener target]
+  (loop [to-find 1 text (.subSequence text offset (.length text)) acc-offset offset]
+    (let [target-offset (find-next-occurrence text {:pos (set [opener target])})
+          found (.charAt text target-offset)
+          text (.subSequence text (inc target-offset) (.length text))
+          acc-offset (inc acc-offset)]
+      (if (= found target) ; must check first if we found match in case match = char
+        (if (= to-find 1)
+          (+ acc-offset target-offset -1)
+          (recur (dec to-find) text (+ acc-offset target-offset)))
+        (recur (inc to-find) text (+ acc-offset target-offset))))))
+
+(defn previous-match
+  [text offset opener target]
+  (let [len (.length text)
+        idx (- len offset 1)
+        text (-> (StringBuilder. text) .reverse)
+        res (next-match text idx opener target)]
+    (- len res 1)))
+
+(defn ihx-goto-matching
+  [{:keys [_ offset] :as selection} document]
+  (let [text (.getCharsSequence document)
+        opener (.charAt text offset)
+        {:keys [match direction]} (get char-match opener)]
+    (when (and match direction)
+      (let [offset (case direction
+                     :open (next-match text (inc offset) opener match)
+                     :close (previous-match text (dec offset) opener match))]
+        (assoc selection :offset offset)))))

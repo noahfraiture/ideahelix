@@ -362,7 +362,10 @@
      (do (-> (ihx-move-caret-line-n editor document (get-prefix state))
              ihx-shrink-selection
              (ihx-apply-selection! document))
-         (assoc state :mode :normal))))
+         (assoc state :mode :normal)))
+   (\m
+     "Match menu"
+     [state] (assoc state :mode :match)))
 
   (:select
     (\g
@@ -474,7 +477,10 @@
      [state editor document]
      (do (-> (ihx-move-caret-line-n editor document (get-prefix state))
              (ihx-apply-selection! document))
-         (assoc state :mode :select))))
+         (assoc state :mode :select)))
+   (\m
+     "Match menu"
+     [state] (assoc state :mode :select-match)))
 
   (:goto
     (Character/isDigit
@@ -626,8 +632,26 @@
        (when-let [^LookupImpl lookup (LookupManager/getActiveLookup editor)]
          (.setSelectedIndex lookup (dec (.getSelectedIndex lookup)))
          state)))
-    (_ [state] (assoc state :pass true))))
+    (_ [state] (assoc state :pass true)))
 
+  (:match
+   (\m
+    "Goto matching bracket"
+    [project document editor caret]
+    (-> (ihx-selection document caret)
+        (ihx-goto-matching document)
+        ihx-shrink-selection
+        (ihx-apply-selection! document))
+    [state] (assoc state :mode :normal)))
+
+  (:select-match
+   (\m
+    "Goto matching bracket"
+    [project document editor caret]
+    (-> (ihx-selection document caret)
+        (ihx-goto-matching document)
+        (ihx-apply-selection! document))
+    [state] (assoc state :mode :select))))
 
 (defn handle-editor-event
   [project ^EditorImpl editor ^KeyEvent event]
