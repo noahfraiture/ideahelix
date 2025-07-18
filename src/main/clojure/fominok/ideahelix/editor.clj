@@ -334,6 +334,21 @@
          (ihx-move-forward (get-prefix state))
          ihx-shrink-selection
          (ihx-apply-selection! document)))
+    (KeyEvent/VK_HOME
+      "Move carets to line start" :scroll
+      [editor document caret]
+      (-> (ihx-selection document caret)
+          (ihx-move-line-start editor document)
+          ihx-shrink-selection
+          (ihx-apply-selection! document)))
+    (KeyEvent/VK_END
+      "Move carets to line end" :scroll
+      [editor document caret]
+      (-> (ihx-selection document caret)
+          (ihx-move-line-end editor document)
+          (ihx-move-backward 1)
+          ihx-shrink-selection
+          (ihx-apply-selection! document)))
     ((:shift \G)
      "Move to line number" :scroll :jumplist-add
      [state editor document]
@@ -427,6 +442,19 @@
      (-> (ihx-selection document caret)
          (ihx-move-forward (get-prefix state))
          (ihx-apply-selection! document)))
+    (KeyEvent/VK_HOME
+      "Move carets to line start" :scroll
+      [editor document caret]
+      (-> (ihx-selection document caret)
+          (ihx-move-line-start editor document)
+          (ihx-apply-selection! document)))
+    (KeyEvent/VK_END
+      "Move carets to line end" :scroll
+      [editor document caret]
+      (-> (ihx-selection document caret)
+          (ihx-move-line-end editor document)
+          (ihx-move-backward 1)
+          (ihx-apply-selection! document)))
     ((:shift \G)
      "Move to line number" :scroll :jumplist-add
      [state editor document]
