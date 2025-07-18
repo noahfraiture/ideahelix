@@ -280,7 +280,7 @@
   [state editor ^Document document char & {:keys [include]
                                            :or {include false}}]
   (when
-   (or (Character/isLetterOrDigit char) ((into #{} "!@#$%^&*()_+-={}[]|;:<>.,?~`") char))
+    (or (Character/isLetterOrDigit char) ((into #{} "!@#$%^&*()_+-={}[]|;:<>.,?~`") char))
     (doseq [caret (.. editor getCaretModel getAllCarets)]
       (let [text (.getCharsSequence document)
             len (.length text)
@@ -288,10 +288,10 @@
             sub (.subSequence text (+ 2 (.getOffset caret)) len)]
         (when-let [delta (find-next-occurrence sub {:pos #{char}})]
           (cond-> (ihx-selection document caret)
-            (not expand) (ihx-shrink-selection)
-            true (ihx-move-forward (inc delta))
-            include (ihx-move-forward 1)
-            true (ihx-apply-selection! document)))))
+                  (not expand) (ihx-shrink-selection)
+                  true (ihx-move-forward (inc delta))
+                  include (ihx-move-forward 1)
+                  true (ihx-apply-selection! document)))))
     (assoc state :mode (:previous-mode state))))
 
 ;; This modifies the caret
@@ -512,10 +512,9 @@
   [{:keys [_ offset] :as selection} document]
   (let [text (.getCharsSequence document)
         opener (.charAt text offset)
-        target (:match (get char-match opener))]
-    (when (contains? char-match opener)
-      (let [direction (:direction (get char-match opener))
-            offset (case direction
-                     :open (next-match text (inc offset) opener target)
-                     :close (previous-match text (dec offset) opener target))]
+        {:keys [match direction]} (get char-match opener)]
+    (when (and match direction)
+      (let [offset (case direction
+                     :open (next-match text (inc offset) opener match)
+                     :close (previous-match text (dec offset) opener match))]
         (assoc selection :offset offset)))))
