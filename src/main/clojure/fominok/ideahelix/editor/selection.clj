@@ -270,6 +270,30 @@
   [editor]
   (.. editor getScrollingModel (scrollToCaret ScrollType/RELATIVE)))
 
+(defn find-next-occurrence
+  [^CharSequence text {:keys [pos neg]}]
+  (first (keep-indexed #(when (or
+                               (contains? pos %2)
+                               (not (or (nil? neg) (contains? neg %2))))
+                          %1) text)))
+
+(defn find-char
+  [state editor ^Document document char & {:keys [include]
+                                           :or {include false}}]
+  (when
+   (or (Character/isLetterOrDigit char) ((into #{} "!@#$%^&*()_+-={}[]|;:<>.,?~`") char))
+    (doseq [caret (.. editor getCaretModel getAllCarets)]
+      (let [text (.getCharsSequence document)
+            len (.length text)
+            expand (= (:previous-mode state) :select)
+            sub (.subSequence text (+ 2 (.getOffset caret)) len)]
+        (when-let [delta (find-next-occurrence sub {:pos #{char}})]
+          (cond-> (ihx-selection document caret)
+            (not expand) (ihx-shrink-selection)
+            true (ihx-move-forward (inc delta))
+            include (ihx-move-forward 1)
+            true (ihx-apply-selection! document)))))
+    (assoc state :mode (:previous-mode state))))
 
 ;; This modifies the caret
 (defn ihx-word-forward-extending!
@@ -288,6 +312,29 @@
         (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_START false true)
         (assoc selection :offset (max 0 (dec (.getOffset caret))) :anchor new-offset))
       (assoc selection :offset (max 0 (dec new-offset)) :anchor offset))))
+
+(defn ihx-long-word-forward!
+  [{:keys [_ offset] :as selection} document extending?]
+  (let [text (.getCharsSequence document)
+        blank-chars (set " \t\n\r")
+        len (.length text)
+        offset (cond-> offset
+                 ; if we are at space right before a word, we shift the offset
+                 (and
+                  (contains? blank-chars (.charAt text offset))
+                  (not (contains? blank-chars (.charAt text (inc offset)))))
+                 inc
+                 ; if we are at the end of the line, we skip to next line
+                 (= \newline (.charAt text (inc offset)))
+                 (+ 2))
+        sub (.subSequence text offset len)
+        end-offset (+ offset (or (find-next-occurrence sub {:pos blank-chars}) (.length sub)))
+        sub (.subSequence text end-offset len)
+        end-offset (+ end-offset (or (find-next-occurrence sub {:pos #{} :neg (set " \t")}) (.length sub)))
+        end-offset (dec end-offset)]
+    (if extending?
+      (assoc selection :offset end-offset)
+      (assoc selection :offset end-offset :anchor offset))))
 
 (defn ihx-word-end-extending!
   [{:keys [caret] :as selection} editor]
@@ -387,26 +434,3 @@
     (doseq [caret free-carets]
       (-> (ihx-selection document caret)
           (ihx-apply-selection! document)))))
-
-
-(defn find-next-occurrence
-  [^CharSequence text char-to-find]
-  (first (keep-indexed #(when (= %2 char-to-find) %1) text)))
-
-
-(defn find-char
-  [state editor ^Document document ^Character char & {:keys [include]
-                                                      :or {include false}}]
-  (when (or (Character/isLetterOrDigit char)
-            ((into #{} "!@#$%^&*()_+-={}[]|;:<>.,?~`") char))
-    (doseq [caret (.. editor getCaretModel getAllCarets)]
-      (let [text (.getCharsSequence document)
-            len (.length text)
-            expand (= (:previous-mode state) :select)]
-        (when-let [delta (find-next-occurrence (.subSequence text (+ 2 (.getOffset caret)) len) char)]
-          (cond-> (ihx-selection document caret)
-            (not expand) (ihx-shrink-selection)
-            true (ihx-move-forward (inc delta))
-            include (ihx-move-forward 1)
-            true (ihx-apply-selection! document)))))
-    (assoc state :mode (:previous-mode state))))
