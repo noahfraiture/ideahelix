@@ -3,6 +3,7 @@
 ;; file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 (ns fominok.ideahelix.editor.selection
+  (:require [fominok.ideahelix.editor.util :refer [printable-char?]])
   (:import
     (com.intellij.openapi.editor
       Document
@@ -508,6 +509,42 @@
         res (next-match text idx opener target)]
     (- len res 1)))
 
+(defn get-open-close-chars [char]
+  (let [match-info (get char-match char)]
+    (cond (nil? match-info) {:open-char char :close-char char}
+          (= (:direction match-info) :open) {:open-char char :close-char (:match match-info)}
+          :else {:open-char (:match match-info) :close-char char})))
+
+(defn ihx-surround-delete
+  [{:keys [offset anchor] :as selection} document char]
+  (when (printable-char? char)
+    (let [text (.getCharsSequence document)
+          {:keys [open-char close-char]} (get-open-close-chars char)
+          curr-char (.charAt text offset)]
+      (if (and (not= open-char curr-char) (not= close-char curr-char))
+        (let [left (previous-match text offset close-char open-char)
+              right (next-match text offset open-char close-char)
+              anchor (if (> anchor left)
+                       (dec anchor)
+                       anchor)]
+          (.deleteString document right (inc right))
+          (.deleteString document left (inc left))
+          (assoc selection :offset (dec offset) :anchor anchor))
+        (cond
+          (= open-char close-char) nil
+          (= open-char curr-char) (let [left offset
+                                        right (next-match text (inc offset) open-char close-char)
+                                        anchor (if (> anchor offset) (dec anchor) anchor)]
+                                    (.deleteString document right (inc right))
+                                    (.deleteString document left (inc left))
+                                    (assoc selection :offset offset :anchor anchor))
+          (= close-char curr-char) (let [left (previous-match text (dec offset) close-char open-char)
+                                         right offset
+                                         anchor (dec anchor)]
+                                     (.deleteString document right (inc right))
+                                     (.deleteString document left (inc left))
+                                     (assoc selection :offset (dec offset) :anchor anchor)))))))
+
 (defn ihx-goto-matching
   [{:keys [_ offset] :as selection} document]
   (let [text (.getCharsSequence document)
@@ -518,3 +555,4 @@
                      :open (next-match text (inc offset) opener match)
                      :close (previous-match text (dec offset) opener match))]
         (assoc selection :offset offset)))))
+
