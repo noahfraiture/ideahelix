@@ -3,7 +3,8 @@
 ;; file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 (ns fominok.ideahelix.editor.selection
-  (:require [fominok.ideahelix.editor.util :refer [printable-char?]])
+  (:require
+    [fominok.ideahelix.editor.util :refer [printable-char?]])
   (:import
     (com.intellij.openapi.editor
       Document
@@ -19,6 +20,7 @@
       Project)
     (com.intellij.openapi.ui
       Messages)))
+
 
 ;; Instead of counting positions between characters this wrapper
 ;; speaks in character indices, at least because when selection is getting
@@ -270,12 +272,14 @@
   [editor]
   (.. editor getScrollingModel (scrollToCaret ScrollType/RELATIVE)))
 
+
 (defn find-next-occurrence
   [^CharSequence text {:keys [pos neg]}]
   (first (keep-indexed #(when (or
-                               (contains? pos %2)
-                               (not (or (nil? neg) (contains? neg %2))))
+                                (contains? pos %2)
+                                (not (or (nil? neg) (contains? neg %2))))
                           %1) text)))
+
 
 (defn find-char
   [state editor ^Document document char & {:keys [include]
@@ -289,11 +293,12 @@
             sub (.subSequence text (+ 2 (.getOffset caret)) len)]
         (when-let [delta (find-next-occurrence sub {:pos #{char}})]
           (cond-> (ihx-selection document caret)
-                  (not expand) (ihx-shrink-selection)
-                  true (ihx-move-forward (inc delta))
-                  include (ihx-move-forward 1)
-                  true (ihx-apply-selection! document)))))
+            (not expand) (ihx-shrink-selection)
+            true (ihx-move-forward (inc delta))
+            include (ihx-move-forward 1)
+            true (ihx-apply-selection! document)))))
     (assoc state :mode (:previous-mode state))))
+
 
 ;; This modifies the caret
 (defn ihx-word-forward-extending!
@@ -302,6 +307,7 @@
   (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_START false true)
   (let [new-offset (max 0 (dec (.getOffset caret)))]
     (assoc selection :offset new-offset)))
+
 
 (defn ihx-word-forward!
   [{:keys [caret offset] :as selection} editor]
@@ -313,18 +319,19 @@
         (assoc selection :offset (max 0 (dec (.getOffset caret))) :anchor new-offset))
       (assoc selection :offset (max 0 (dec new-offset)) :anchor offset))))
 
+
 (defn ihx-long-word-forward!
   [{:keys [_ offset] :as selection} document extending?]
   (let [text (.getCharsSequence document)
         blank-chars (set " \t\n\r")
         len (.length text)
         offset (cond-> offset
-                 ; if we are at space right before a word, we shift the offset
+                 ;; if we are at space right before a word, we shift the offset
                  (and
-                  (contains? blank-chars (.charAt text offset))
-                  (not (contains? blank-chars (.charAt text (inc offset)))))
+                   (contains? blank-chars (.charAt text offset))
+                   (not (contains? blank-chars (.charAt text (inc offset)))))
                  inc
-                 ; if we are at the end of the line, we skip to next line
+                 ;; if we are at the end of the line, we skip to next line
                  (= \newline (.charAt text (inc offset)))
                  (+ 2))
         sub (.subSequence text offset len)
@@ -336,12 +343,14 @@
       (assoc selection :offset end-offset)
       (assoc selection :offset end-offset :anchor offset))))
 
+
 (defn ihx-word-end-extending!
   [{:keys [caret] :as selection} editor]
   (.moveCaretRelatively caret 1 0 false false)
   (EditorActionUtil/moveToNextCaretStop editor CaretStopPolicy/WORD_END false true)
   (let [new-offset (max 0 (dec (.getOffset caret)))]
     (assoc selection :offset new-offset)))
+
 
 (defn ihx-word-end!
   [{:keys [caret offset] :as selection} editor]
@@ -353,20 +362,21 @@
         (assoc selection :offset (max 0 (dec (.getOffset caret))) :anchor new-offset))
       (assoc selection :offset (max 0 (dec new-offset)) :anchor offset))))
 
+
 (defn ihx-long-word-end!
   [{:keys [_ offset] :as selection} document extending?]
   (let [text (.getCharsSequence document)
         blank-chars (set " \t\n\r")
         len (.length text)
         offset (cond-> offset
-                       ; if we are at space right before a word, we shift the offset
-                       (and
-                               (not (contains? blank-chars (.charAt text offset)))
-                               (contains? blank-chars (.charAt text (inc offset))))
-                       inc
-                       ; if we are at the end of the line, we skip to next line
-                       (= \newline (.charAt text (inc offset)))
-                       (+ 2))
+                 ;; if we are at space right before a word, we shift the offset
+                 (and
+                   (not (contains? blank-chars (.charAt text offset)))
+                   (contains? blank-chars (.charAt text (inc offset))))
+                 inc
+                 ;; if we are at the end of the line, we skip to next line
+                 (= \newline (.charAt text (inc offset)))
+                 (+ 2))
         sub (.subSequence text offset len)
         end-offset (+ offset (or (find-next-occurrence sub {:pos #{} :neg blank-chars}) (.length sub)))
         sub (.subSequence text end-offset len)
@@ -375,6 +385,7 @@
     (if extending?
       (assoc selection :offset end-offset)
       (assoc selection :offset end-offset :anchor offset))))
+
 
 (defn ihx-word-backward-extending!
   [{:keys [caret] :as selection} editor]
@@ -392,6 +403,7 @@
       (assoc new-selection :anchor (max 0 (dec (.getOffset caret))))
       new-selection)))
 
+
 (defn ihx-long-word-backward!
   [{:keys [_ offset] :as selection} document extending?]
   (let [text (-> (.getCharsSequence document) (.subSequence 0 offset) StringBuilder. .reverse)
@@ -399,8 +411,8 @@
         len (.length text)
         start (cond-> 1
                 (and
-                 (not (contains? blank-chars (.charAt text 0)))
-                 (contains? blank-chars (.charAt text 1)))
+                  (not (contains? blank-chars (.charAt text 0)))
+                  (contains? blank-chars (.charAt text 1)))
                 inc
                 (= \newline (.charAt text 1))
                 (+ 2))
@@ -412,6 +424,7 @@
     (if extending?
       (assoc selection :offset (- offset end-offset 1))
       (assoc selection :offset (- offset end-offset 1) :anchor (- offset start)))))
+
 
 (defn ihx-move-caret-line-n
   [editor document n]
@@ -478,6 +491,7 @@
       (-> (ihx-selection document caret)
           (ihx-apply-selection! document)))))
 
+
 (defn ihx-surround-add
   [{:keys [offset anchor] :as selection} document char]
   (when (printable-char? char)
@@ -490,6 +504,7 @@
               (.insertString document offset (str char))
               (assoc selection :offset offset :anchor (+ 2 anchor))))))
 
+
 (def char-match
   {\( {:match \) :direction :open}
    \) {:match \( :direction :close}
@@ -499,6 +514,7 @@
    \} {:match \{ :direction :close}
    \< {:match \> :direction :open}
    \> {:match \< :direction :close}})
+
 
 (defn next-match
   [text offset opener target]
@@ -513,6 +529,7 @@
           (recur (dec to-find) text (+ acc-offset target-offset)))
         (recur (inc to-find) text (+ acc-offset target-offset))))))
 
+
 (defn previous-match
   [text offset opener target]
   (let [len (.length text)
@@ -521,7 +538,9 @@
         res (next-match text idx opener target)]
     (- len res 1)))
 
-(defn get-open-close-chars [char]
+
+(defn get-open-close-chars
+  [char]
   (let [match-info (get char-match char)]
     (cond (nil? match-info) {:open-char char :close-char char}
           (= (:direction match-info) :open) {:open-char char :close-char (:match match-info)}
@@ -554,6 +573,7 @@
     (when (not (nil? matches))
       (assoc selection :offset (:left matches) :anchor (:right matches)))))
 
+
 (defn ihx-surround-delete
   [{:keys [offset anchor] :as selection} document char]
   (when (printable-char? char)
@@ -583,6 +603,7 @@
                                      (.deleteString document right (inc right))
                                      (.deleteString document left (inc left))
                                      (assoc selection :offset (dec offset) :anchor anchor)))))))
+
 
 (defn ihx-goto-matching
   [{:keys [_ offset] :as selection} document]
