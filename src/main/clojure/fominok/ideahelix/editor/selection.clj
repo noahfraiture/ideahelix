@@ -89,18 +89,30 @@
     (->IhxSelection caret anchor offset in-append)))
 
 
-;; This modifies the caret
-(defn ihx-apply-selection!
-  [{:keys [anchor offset caret in-append]} document]
-  (when (and caret (.isValid caret))
+(defn- apply-selection-to-caret
+  [caret anchor offset in-append document]
+  (when (.isValid caret)
     (let [[start end] (sort [anchor offset])
           text-length (.getTextLength document)
           adj #(max 0 (min % (dec text-length)))
-          adjusted-offset (adj (cond-> offset
-                                 in-append inc))
+          adjusted-offset (adj (cond-> offset in-append inc))
           adjusted-start (adj start)]
       (.moveToOffset caret adjusted-offset)
       (.setSelection caret adjusted-start (max 0 (min (inc end) text-length))))))
+
+(defn ihx-apply-selection!
+  [{:keys [anchor offset caret in-append]} document editor]
+  (apply-selection-to-caret caret anchor offset in-append document)
+  (let [model (.getCaretModel editor)
+        all-carets (.getAllCarets model)
+        secondary-carets (filter #(not= % caret) all-carets)]
+    (doseq [caret secondary-carets]
+      (when (.isValid caret)
+        (when (= (.getSelectionStart caret) (.getSelectionEnd caret))
+          (let [off (.getOffset caret)
+                text-length (.getTextLength document)
+                sel-end (min (inc off) text-length)]
+            (.setSelection caret off sel-end)))))))
 
 
 (defn ihx-apply-selection-preserving
@@ -227,7 +239,7 @@
         (ihx-offset 0)
         ihx-make-forward
         (ihx-offset length)
-        (ihx-apply-selection! document))))
+        (ihx-apply-selection! document editor))))
 
 
 (defn regex-matches-with-positions
@@ -249,7 +261,7 @@
                 "select:"
                 "Select in selections"
                 (Messages/getQuestionIcon))
-        pattern (when (not (empty? input)) (re-pattern input))
+        pattern (when (seq input) (re-pattern input))
         matches
         (and pattern
              (->> (.getAllCarets model)
@@ -261,11 +273,11 @@
     (when-let [{:keys [start end]} (first matches)]
       (.removeSecondaryCarets model)
       (-> (->IhxSelection primary start (dec end) false)
-          (ihx-apply-selection! document)))
+          (ihx-apply-selection! document editor)))
     (doseq [{:keys [start end]} (rest matches)]
       (when-let [caret (.addCaret model (.offsetToVisualPosition editor (max 0 (dec end))))]
         (-> (->IhxSelection caret start (dec end) false)
-            (ihx-apply-selection! document))))))
+            (ihx-apply-selection! document editor))))))
 
 
 (defn scroll-to-primary-caret
@@ -296,7 +308,7 @@
             (not expand) (ihx-shrink-selection)
             true (ihx-move-forward (inc delta))
             include (ihx-move-forward 1)
-            true (ihx-apply-selection! document)))))
+            true (ihx-apply-selection! document editor)))))
     (assoc state :mode (:previous-mode state))))
 
 
@@ -458,7 +470,7 @@
 
 
 (defn- restore-saved-selections
-  [pre-selections insertion-kind document carets]
+  [pre-selections insertion-kind document editor carets]
   (when-not (empty? pre-selections)
     (let [delta (- (.getOffset (first carets)) (:offset (first pre-selections))
                    (if (= insertion-kind :append) 1 0))
@@ -472,13 +484,13 @@
                     (-> selection
                         (assoc :anchor new-anchor)
                         (assoc :offset (dec new-offset))
-                        (ihx-apply-selection! document))
+                        (ihx-apply-selection! document editor))
                     (-> (ihx-selection document caret)
                         (ihx-move-backward 1)
-                        (ihx-apply-selection! document)))
+                        (ihx-apply-selection! document editor)))
           (-> selection
               (ihx-nudge (+ delta delta-anchor))
-              (ihx-apply-selection! document)))))))
+              (ihx-apply-selection! document editor)))))))
 
 
 (defn restore-selections
@@ -486,10 +498,10 @@
   (let [carets (.. editor getCaretModel getAllCarets)
         saved-carets (into #{} (map :caret pre-selections))
         free-carets (filter (complement saved-carets) carets)]
-    (restore-saved-selections pre-selections insertion-kind document carets)
+    (restore-saved-selections pre-selections insertion-kind document editor carets)
     (doseq [caret free-carets]
       (-> (ihx-selection document caret)
-          (ihx-apply-selection! document)))))
+          (ihx-apply-selection! document editor)))))
 
 
 (defn ihx-surround-add
@@ -588,3 +600,41 @@
                      :open (next-match text (inc offset) opener match)
                      :close (previous-match text (dec offset) opener match))]
         (assoc selection :offset offset)))))
+
+
+(defn ihx-surround-find
+  [{:keys [offset anchor] :as selection} editor document char]
+  (if-not (printable-char? char)
+    selection
+    (let [model (.getCaretModel editor)
+          text (.getCharsSequence document)
+          {:keys [open-char close-char]} (get-open-close-chars char)
+          curr-char (.charAt text offset)
+          [left right] (if (and (not= open-char curr-char) (not= close-char curr-char))
+                         [(previous-match text offset close-char open-char)
+                          (next-match text offset open-char close-char)]
+                         (cond
+                           (= open-char close-char) nil
+                           (= open-char curr-char)
+                           [offset (next-match text (inc offset) open-char close-char)]
+                           (= close-char curr-char)
+                           [(previous-match text (dec offset) close-char open-char) offset]))]
+      (when (and left right)
+        (.addCaret model (.offsetToVisualPosition editor left) false)
+        (.addCaret model (.offsetToVisualPosition editor right) false)
+        (assoc selection :offset offset :anchor anchor)))))
+
+
+(defn ihx-surround-replace
+  [{:keys [offset anchor] :as selection} editor document char]
+  (when (printable-char? char)
+    (let [{:keys [open-char close-char]} (get-open-close-chars char)
+          model (.getCaretModel editor)
+          secondary-carets (filter #(not= % (.getPrimaryCaret model)) (.getAllCarets model))
+          [left-caret right-caret] (sort-by #(.getOffset %) secondary-carets)
+          left (.getOffset left-caret)
+          right (.getOffset right-caret)]
+      (.replaceString document left (inc left) (str open-char))
+      (.replaceString document right (inc right) (str close-char))
+      (keep-primary-selection editor)
+      (assoc selection :offset offset :anchor anchor))))
