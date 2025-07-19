@@ -243,7 +243,7 @@
    ((:or (:ctrl \s) (:ctrl \u0013))
     "Add to jumplist"
     [state project document]
-    (jumplist-add  project state)))
+    (jumplist-add project state)))
 
   (:normal
     (\g "Goto mode" :keep-prefix [state] (assoc state :mode :goto))
@@ -363,9 +363,9 @@
              ihx-shrink-selection
              (ihx-apply-selection! document))
          (assoc state :mode :normal)))
-   (\m
-     "Match menu"
-     [state] (assoc state :mode :match)))
+    (\m
+      "Match menu"
+      [state] (assoc state :mode :match)))
 
   (:select
     (\g
@@ -478,9 +478,9 @@
      (do (-> (ihx-move-caret-line-n editor document (get-prefix state))
              (ihx-apply-selection! document))
          (assoc state :mode :select)))
-   (\m
-     "Match menu"
-     [state] (assoc state :mode :select-match)))
+    (\m
+      "Match menu"
+      [state] (assoc state :mode :select-match)))
 
   (:goto
     (Character/isDigit
@@ -636,46 +636,48 @@
 
   ((:or :match :select-match)
    (\s
-    [state] (assoc state :mode :match-surround-add)))
+     [state] (assoc state :mode :match-surround-add)))
 
   (:match-surround-add
-   (_
-    "Surround add" :write
-    [project state document caret char]
-     (-> (ihx-selection document caret)
-         (ihx-surround-add document char)
-         (ihx-apply-selection! document)))))
+    (_
+      "Surround add" :write
+      [project state document caret char]
+      (-> (ihx-selection document caret)
+          (ihx-surround-add document char)
+          (ihx-apply-selection! document))))
 
   ((:or :match :select-match)
    (\d
-    [state] (assoc state :mode :match-surround-delete)))
+     [state] (assoc state :mode :match-surround-delete)))
 
   (:match-surround-delete
-   (_
-    "Surround delete" :write
-    [project state document caret char]
-    (-> (ihx-selection document caret)
-        (ihx-surround-delete document char)
-        (ihx-apply-selection! document))))
+    (_
+      "Surround delete" :write
+      [project document caret char]
+      (-> (ihx-selection document caret)
+          (ihx-surround-delete document char)
+          (ihx-apply-selection! document))
+      [state] (assoc state :mode :normal)))
 
   (:match
-   (\m
-    "Goto matching bracket"
-    [project document editor caret]
-    (-> (ihx-selection document caret)
-        (ihx-goto-matching document)
-        ihx-shrink-selection
-        (ihx-apply-selection! document))
-    [state] (assoc state :mode :normal)))
+    (\m
+      "Goto matching bracket"
+      [project document editor caret]
+      (-> (ihx-selection document caret)
+          (ihx-goto-matching document)
+          ihx-shrink-selection
+          (ihx-apply-selection! document))
+      [state] (assoc state :mode :normal)))
 
   (:select-match
-   (\m
-    "Goto matching bracket"
-    [project document editor caret]
-    (-> (ihx-selection document caret)
-        (ihx-goto-matching document)
-        (ihx-apply-selection! document))
-    [state] (assoc state :mode :select))))
+    (\m
+      "Goto matching bracket"
+      [project document editor caret]
+      (-> (ihx-selection document caret)
+          (ihx-goto-matching document)
+          (ihx-apply-selection! document))
+      [state] (assoc state :mode :select))))
+
 
 (defn handle-editor-event
   [project ^EditorImpl editor ^KeyEvent event]
@@ -694,7 +696,8 @@
               (and debounce (= (.getID event) KeyEvent/KEY_TYPED))
               (assoc project-state :debounce false)
               :else (result-fn))
-            (if (= (.getID event) KeyEvent/KEY_PRESSED)
+            (if (and (= (.getID event) KeyEvent/KEY_PRESSED)
+                     (not (#{KeyEvent/VK_SHIFT KeyEvent/VK_CONTROL KeyEvent/VK_ALT KeyEvent/VK_META} (.getKeyCode event))))
               (result-fn)
               nil))
           (catch StartMarkAction$AlreadyStartedException e

@@ -35,7 +35,9 @@
         line-height-px (.getLineHeight editor)]
     (int (quot editor-height-px line-height-px))))
 
-(defn printable-char? [c]
+
+(defn printable-char?
+  [c]
   (let [block (java.lang.Character$UnicodeBlock/of c)]
     (and (not (Character/isISOControl c))
          (not= c java.awt.event.KeyEvent/CHAR_UNDEFINED)
